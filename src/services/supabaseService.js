@@ -107,3 +107,23 @@ export async function saveInsightRecord(insight) {
     throw new Error(error.message || 'Failed to save insights');
   }
 }
+
+// ─── Embedding backfill helpers ────────────────────────────────────────────
+
+export async function getEntriesMissingEmbeddings() {
+  const { data, error } = await supabase
+    .from('journals')
+    .select('id, ai_summary, highlight, user_text')
+    .is('embedding', null)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function setEntryEmbedding(id, vec) {
+  const { error } = await supabase
+    .from('journals')
+    .update({ embedding: vec })
+    .eq('id', id);
+  if (error) throw error;
+}

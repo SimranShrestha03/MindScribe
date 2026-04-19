@@ -130,7 +130,39 @@ async function callClaude(
   return { text: data.content[0].text, usage, model: data.model || CLAUDE_MODEL };
 }
 
-// ─── OpenAI transport ────────────────────────────────────────────────────────
+// ─── OpenAI embedding transport ──────────────────────────────────────────────
+// Always uses OpenAI (text-embedding-3-small, 1536 dims) regardless of the
+// chat-completion provider — Claude does not currently offer an embedding API.
+async function embedWithOpenAI(
+  input: string,
+  openaiKey: string,
+): Promise<{ embedding: number[]; usage: Record<string, number | null>; model: string }> {
+  const EMBED_MODEL = 'text-embedding-3-small';
+
+  const response = await fetchWithRetry('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${openaiKey}`,
+    },
+    body: JSON.stringify({ model: EMBED_MODEL, input }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as any;
+    throw new Error(err.error?.message || `Embedding API error: ${response.status}`);
+  }
+
+  const data = await response.json() as any;
+  const usage = {
+    prompt_tokens: data.usage?.prompt_tokens ?? null,
+    completion_tokens: null,
+    total_tokens: data.usage?.total_tokens ?? null,
+  };
+  return { embedding: data.data[0].embedding, usage, model: data.model || EMBED_MODEL };
+}
+
+// ─── OpenAI chat transport ───────────────────────────────────────────────────
 async function callOpenAI(
   prompt: string,
   openaiKey: string,
@@ -199,21 +231,35 @@ serve(async (req: Request) => {
     }
 
     // 2. Parse the request body.
-    let body: { prompt: string; json?: boolean };
+    let body: { action?: string; prompt?: string; input?: string; json?: boolean };
     try {
       body = await req.json();
     } catch {
       return jsonResponse({ error: 'Invalid JSON body' }, 400);
     }
 
-    if (typeof body.prompt !== 'string' || !body.prompt.trim()) {
-      return jsonResponse({ error: 'Missing prompt' }, 400);
-    }
-
-    // 3. Dispatch to LLM provider.
+    const action = body.action ?? 'complete';
     const provider = Deno.env.get('LLM_PROVIDER') ?? 'claude';
     const claudeKey = Deno.env.get('CLAUDE_API_KEY') ?? '';
     const openaiKey = Deno.env.get('OPENAI_API_KEY') ?? '';
+
+    // 3a. Embedding path (always OpenAI — Claude has no embedding endpoint).
+    if (action === 'embed') {
+      if (typeof body.input !== 'string' || !body.input.trim()) {
+        return jsonResponse({ error: 'Missing input' }, 400);
+      }
+      if (!openaiKey) {
+        return jsonResponse({ error: 'OpenAI key required for embeddings' }, 500);
+      }
+      const truncated = body.input.slice(0, 6000); // keep token cost bounded
+      const embedResult = await embedWithOpenAI(truncated, openaiKey);
+      return jsonResponse(embedResult);
+    }
+
+    // 3b. Chat-completion path.
+    if (typeof body.prompt !== 'string' || !body.prompt.trim()) {
+      return jsonResponse({ error: 'Missing prompt' }, 400);
+    }
 
     let result: { text: string; usage: Record<string, number | null>; model: string };
     if (provider === 'openai') {

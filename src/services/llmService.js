@@ -32,8 +32,7 @@ async function fetchWithRetry(url, init, maxAttempts = 3) {
   throw lastErr ?? new Error('LLM request failed after retries');
 }
 
-async function dispatch(prompt, { json }) {
-  // Get the current user session to forward as Authorization header.
+async function callProxy(payload) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('No active session — cannot call LLM proxy.');
 
@@ -46,7 +45,7 @@ async function dispatch(prompt, { json }) {
       Authorization: `Bearer ${session.access_token}`,
       apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ prompt, json }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -54,8 +53,20 @@ async function dispatch(prompt, { json }) {
     throw new Error(err.error || `LLM proxy error: ${response.status}`);
   }
 
-  const data = await response.json();
+  return await response.json();
+}
+
+async function dispatch(prompt, { json }) {
+  const data = await callProxy({ prompt, json });
   return { text: data.text, usage: data.usage, model: data.model };
+}
+
+// Embed a string via the proxy. Returns a 1536-dim float array.
+// Used on entry save (to store the embedding) and on Ask (to embed the query).
+export async function embedText(input) {
+  if (!input || !input.trim()) return null;
+  const data = await callProxy({ action: 'embed', input });
+  return data.embedding;
 }
 
 // ─── LLM usage logging ──────────────────────────────────────────────────────
@@ -361,25 +372,64 @@ function pickRelevantEntries(question, entries, max = 15) {
 
 // ─── 3. ASK YOUR PAST SELF ──────────────────────────────────────────────────
 // Responds in the user's OWN voice (first person). The past self speaks back.
+//
+// Retrieval strategy:
+//   1. Try semantic search: embed the question, call match_journals RPC.
+//   2. If that returns <3 entries (pgvector not set up, or legacy entries
+//      without embeddings), fall back to keyword scoring over `allEntries`.
+// Timeframe filter (if present in the question) is applied after retrieval.
 
-export async function askPastSelf(question, allEntries) {
+function filterByTimeframe(entries, timeframe) {
+  if (!timeframe) return entries;
+  return entries.filter((e) => {
+    const created = new Date(e.date || e.created_at);
+    if (timeframe.end && created >= timeframe.end) return false;
+    return created >= timeframe.start;
+  });
+}
+
+async function retrieveEntriesForQuestion(question, allEntries) {
+  // Try semantic path first.
+  try {
+    const queryVec = await embedText(question);
+    if (queryVec) {
+      const { data, error } = await supabase.rpc('match_journals', {
+        query_embedding: queryVec,
+        match_count: 15,
+      });
+      if (!error && Array.isArray(data) && data.length >= 3) {
+        return data.map((r) => ({
+          id: r.id,
+          date: r.created_at,
+          user_text: r.user_text,
+          ai_summary: r.ai_summary,
+          highlight: r.highlight,
+          emotions: Array.isArray(r.emotions) ? r.emotions : [],
+        }));
+      }
+      if (error) console.warn('[ask] match_journals RPC failed:', error.message);
+    }
+  } catch (e) {
+    console.warn('[ask] semantic retrieval failed, falling back to keywords:', e?.message || e);
+  }
+
+  // Fallback: keyword scoring over whatever the client has in memory.
+  return pickRelevantEntries(question, allEntries, 15);
+}
+
+export async function askPastSelf(question, allEntries = []) {
   const timeframe = detectTimeframe(question);
 
-  let pool = [...allEntries];
-  if (timeframe) {
-    pool = allEntries.filter((e) => {
-      const created = new Date(e.date || e.created_at);
-      if (timeframe.end && created >= timeframe.end) return false;
-      return created >= timeframe.start;
-    });
+  const retrieved = await retrieveEntriesForQuestion(question, allEntries);
+  const relevant = filterByTimeframe(retrieved, timeframe);
+
+  if (relevant.length === 0) {
+    return timeframe
+      ? "I don't have anything recorded from that period yet."
+      : "I don't have enough written down to answer that yet.";
   }
 
-  if (pool.length === 0) {
-    return "I don't have anything recorded from that period yet.";
-  }
-
-  const relevant = pickRelevantEntries(question, pool, 15);
-  const label = timeframe?.label ?? 'my recent entries';
+  const label = timeframe?.label ?? 'my entries';
   const context = compressEntries(relevant, 15);
 
   const prompt = `ROLE

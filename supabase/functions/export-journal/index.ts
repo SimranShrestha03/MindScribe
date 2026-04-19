@@ -27,11 +27,13 @@ import {
 import JSZip from 'https://esm.sh/jszip@3.10.1';
 
 type Range = '7' | '30' | '90' | 'custom';
+type Mode = 'email' | 'download';
 
 interface RequestBody {
   range: Range;
   startDate?: string;
   endDate?: string;
+  mode?: Mode;
 }
 
 interface JournalRow {
@@ -49,6 +51,7 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Expose-Headers': 'X-Entry-Count, Content-Disposition',
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -335,6 +338,7 @@ serve(async (req: Request) => {
     }
 
     const rows: JournalRow[] = entries ?? [];
+    const mode: Mode = body.mode === 'download' ? 'download' : 'email';
 
     if (rows.length === 0) {
       return jsonResponse({
@@ -344,11 +348,25 @@ serve(async (req: Request) => {
       });
     }
 
+    const pdfBytes = await buildPdf(rows, user.email ?? 'unknown');
+
+    if (mode === 'download') {
+      const filename = `mindscribe-journal-${new Date().toISOString().slice(0, 10)}.pdf`;
+      return new Response(pdfBytes, {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'X-Entry-Count': String(rows.length),
+        },
+      });
+    }
+
     if (!user.email) {
       return jsonResponse({ error: 'No email address on this account' }, 400);
     }
 
-    const pdfBytes = await buildPdf(rows, user.email);
     const zipBytes = await buildZip(pdfBytes);
 
     const rangeLabel =

@@ -79,9 +79,11 @@ Wrap order (outer to inner):
 File: `src/pages/AuthPage.jsx`
 
 - Toggle between **Login** and **Sign Up** on a single screen.
-- Fields: email, password. Client validation: email shape, password length >= 6.
+- Fields: email, password. Signup also shows an **optional Name** field.
+- Client validation: email shape, password length >= 6.
 - `ThemeToggle` button in the top-right corner.
 - Uses `supabase.auth.signInWithPassword` and `signUp`. Shows Supabase errors and loading on submit.
+- On signup, `AuthContext.signUp(email, password, name)` passes a trimmed `name` via `options.data` so it lands in `auth.users.raw_user_meta_data`. The `handle_new_user` DB trigger reads it into `profiles.name`.
 - If email confirmation is required and signup returns no session, shows a message to check email.
 
 ---
@@ -125,8 +127,19 @@ File: `src/context/JournalContext.jsx`
 - Tables **`journals`**, **`insights`**, and **`llm_logs`** include **`user_id`** with RLS policies `auth.uid() = user_id`.
 - `journals` and `insights` have a `user_id` default of `auth.uid()` — inserts omit it.
 - `llm_logs` has no default — the client sets `user_id` explicitly from `supabase.auth.getUser()`.
+- **`profiles`** is keyed on `id` (references `auth.users(id) on delete cascade`). RLS: `auth.uid() = id` for select/update. Rows are created by a trigger, not the client.
 
-Key columns in `journals`: `id`, `created_at`, `user_text`, `ai_summary`, `emotions` (jsonb array), `feedback`, `highlight`, `type`, `is_favorite`.
+**`profiles` columns:** `id`, `email`, `name` (nullable), `timezone` (nullable), `created_at`, `last_active_at`, `last_entry_at`, `entry_count`.
+
+**Triggers driving `profiles`:**
+- `on_auth_user_created` — after `insert on auth.users`, calls `handle_new_user()` which inserts a profile row with `email` and `raw_user_meta_data->>'name'`.
+- `on_journal_insert` — after `insert on journals`, calls `bump_profile_activity()` which bumps `last_active_at`, sets `last_entry_at = now()`, and increments `entry_count`.
+
+**View `active_users_7d`** — selects profiles with `last_active_at >= now() - interval '7 days'`. Convenience surface for admin/analytics queries; no UI reads it yet.
+
+Key columns in `journals`: `id`, `created_at`, `user_text`, `ai_summary`, `emotions` (jsonb array), `feedback`, `highlight`, `type`, `is_favorite`, `embedding` (pgvector, 1536 dims, nullable).
+
+**Semantic search** uses a `match_journals(query_embedding vector(1536), match_count int) returns table(...)` SQL function (defined with `security invoker`, scoped to `auth.uid()`). Called via `supabase.rpc('match_journals', ...)` from the client. Returns the 15 nearest neighbors by cosine distance. Entries without an embedding are skipped; Ask falls back to keyword scoring in that case.
 
 **`llm_logs`** (every LLM call, success or failure):
 
@@ -199,12 +212,20 @@ Below the AI summary (and operating on the **full** entry history, not the activ
 
 - **PatternEngine** (`components/PatternEngine.jsx`) — on-demand button that calls `generatePatterns(entries)` and renders 3–5 first-person patterns ("I tend to...", "I often..."). Gated on having at least 3 summarized entries.
 - **HighlightsOfMonth** (`components/HighlightsOfMonth.jsx`) — last 30 days of non-empty highlights, ranked by length, top 10. Purely local — no LLM call. Hidden when empty.
+- **EmbeddingsBackfill** (`components/EmbeddingsBackfill.jsx`) — only renders when at least one entry has no embedding. Sequentially embeds missing entries via `embedText` + `setEntryEmbedding`, with cancel button and progress bar. 100ms delay between calls as a gentle rate limit. Self-hides once everything is backfilled.
 
 On mount, `WeeklyInsights` calls `fetchEntries()` if the JournalContext cache is empty so these two components have the full history to work with.
 
 ### Export modal (`src/components/ExportModal.jsx`)
 
-Range select: Last 7 / 30 / 90 days or Custom (two date pickers). On submit: `supabase.functions.invoke('export-journal', { body })`. States: idle, submitting, success, error. Parses the actual error from the Edge Function response body for meaningful messages.
+Delivery toggle: **Email me** or **Download PDF**. Range select: Last 7 / 30 / 90 days or Custom (two date pickers).
+
+- **Email mode:** `supabase.functions.invoke('export-journal', { body: { ..., mode: 'email' } })`. Function emails a ZIP containing the PDF via Resend.
+- **Download mode:** direct `fetch` to `${VITE_SUPABASE_URL}/functions/v1/export-journal` with `Authorization: Bearer <access_token>` and `apikey` headers. Function returns raw PDF bytes (`Content-Type: application/pdf`, `Content-Disposition: attachment`, `X-Entry-Count` header). Client wraps the response in a `Blob`, creates an object URL, and clicks a hidden `<a download>` to save. URL is revoked after 1s.
+
+Why two paths: `supabase.functions.invoke` doesn't expose binary response bodies cleanly, so download uses plain `fetch`. Email keeps using `invoke` for consistent error-context parsing.
+
+States: idle, submitting, success, error. Parses JSON error bodies (for both modes) and falls back to generic messages.
 
 ### Theme (`src/context/ThemeContext.jsx` + `src/components/ThemeToggle.jsx`)
 
@@ -221,7 +242,8 @@ Sun/moon icon button. Toggling sets `data-theme` on `<html>` and persists to `lo
 | `processTranscription(userText, { mood, entryId })` | `entry` | Returns `{ ai_summary, emotions, feedback, highlight }` JSON. |
 | `generatePeriodSummary(entries, { insightId })` | `insight` | Returns `{ weeklyReflection, patternInsight, suggestion }` JSON. |
 | `generatePatterns(entries)` | `pattern` | Returns `{ patterns: string[] }` (3–5 items). Requires ≥3 summarized entries. |
-| `askPastSelf(question, allEntries)` | `ask` | Timeframe + relevance filter, returns plain-text first-person answer. |
+| `askPastSelf(question, allEntries?)` | `ask` | Semantic retrieval (embedding → `match_journals` RPC) with keyword fallback, timeframe filter, first-person plain-text answer. `allEntries` is only used when the RPC returns too few results. |
+| `embedText(input)` | (unlogged) | Proxies to the `embed` action; returns a 1536-dim float array. Used on entry save (fire-and-forget) and to embed the Ask question. |
 
 ### Tone spec (STRICT — keep prompts aligned with these)
 
@@ -250,6 +272,7 @@ Core principle: *"My thoughts reflected back to me in my own voice"*, not *"An A
 |----------|-------|-------|
 | `claude` (default) | `claude-sonnet-4-6` | Routed through `llm-proxy` Edge Function. Prompt caching enabled (`cache_control: ephemeral`) on the static ROLE/RULES prefix — cuts input tokens ~80% on repeat calls. |
 | `openai` | `gpt-4o-mini` | Routed through `llm-proxy` Edge Function. JSON mode enforced via `response_format` when caller expects JSON. |
+| embeddings | `text-embedding-3-small` (OpenAI, 1536 dims) | `embed` action on the proxy. Always uses OpenAI regardless of `LLM_PROVIDER` — Claude has no embedding endpoint. `OPENAI_API_KEY` must be set even when the chat provider is Claude. |
 
 Both providers retry 429 / 5xx up to 3 times with exponential back-off (500ms, 1000ms) before surfacing an error. Retry logic lives in the Edge Function (`fetchWithRetry`).
 
@@ -315,10 +338,11 @@ Pipeline:
 3. Resolve range (`'7'|'30'|'90'|'custom'`); return 400 on invalid input.
 4. SELECT `journals` rows in `[start, end]` for the authenticated user (RLS enforced).
 5. Build PDF with `pdf-lib` (Helvetica + bold, WinAnsi safe text, paginated).
-6. Zip as `journal.pdf` inside `journal-export.zip` with `jszip`.
-7. POST to Resend with ZIP attached as base64.
+6. Branch on `body.mode`:
+   - **`'download'`** (default when explicitly requested): return raw PDF bytes with `Content-Type: application/pdf`, `Content-Disposition: attachment; filename="mindscribe-journal-YYYY-MM-DD.pdf"`, and `X-Entry-Count` header. No zip, no email.
+   - **`'email'`** (default when unset): zip the PDF as `journal.pdf` inside `journal-export.zip` with `jszip`, POST to Resend with ZIP attached as base64, return JSON `{ success: true, entryCount, email }`.
 
-Response: `{ success: true, entryCount: N, email: "..." }`. Empty range returns `entryCount: 0`.
+CORS exposes `X-Entry-Count` and `Content-Disposition` via `Access-Control-Expose-Headers` so the browser fetch can read them. Empty range returns JSON `{ success: true, entryCount: 0 }` for both modes (download path won't serve a binary for zero entries).
 
 ---
 

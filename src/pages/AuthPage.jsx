@@ -11,6 +11,7 @@ export function AuthPage() {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +43,7 @@ export function AuthPage() {
       if (isLogin) {
         await signIn(email, password);
       } else {
-        const data = await signUp(email, password);
+        const data = await signUp(email, password, name);
         if (data?.session) {
           // signed in immediately
         } else {
@@ -100,6 +101,22 @@ export function AuthPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                  Name <span className="text-slate-600 normal-case font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-violet-500/60 transition-colors placeholder-slate-600"
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                 Email

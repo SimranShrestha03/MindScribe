@@ -6,7 +6,31 @@ import {
   getAllJournals,
   getJournalsByDateRange,
 } from '../services/supabaseService';
+import { embedText } from '../services/llmService';
+import { supabase } from '../services/supabaseClient';
 import { useAuth } from './AuthContext';
+
+// Compute + attach the embedding for an entry. Fire-and-forget: failure here
+// must never disrupt the journaling flow. Falls back silently to keyword
+// search in askPastSelf when an entry has no embedding yet.
+async function attachEmbeddingAsync(id, text) {
+  if (!id || !text || !text.trim()) return;
+  try {
+    const vec = await embedText(text);
+    if (!vec) return;
+    const { error } = await supabase.from('journals').update({ embedding: vec }).eq('id', id);
+    if (error) console.warn('[embedding] attach failed:', error.message);
+  } catch (e) {
+    console.warn('[embedding] generation failed:', e?.message || e);
+  }
+}
+
+// Build the text we embed. Prioritizes the reflective fields over the raw
+// transcript so semantic search matches meaning, not verbatim transcription.
+function embeddingTextFor(row) {
+  const parts = [row.ai_summary, row.highlight, row.user_text].filter(Boolean);
+  return parts.join('\n\n');
+}
 
 const JournalContext = createContext(null);
 
@@ -56,6 +80,8 @@ export function JournalProvider({ children }) {
     const saved = await saveJournal(entryData);
     const newEntry = mapRow(saved);
     setEntries((prev) => [newEntry, ...prev]);
+    // Fire-and-forget embedding for semantic Ask.
+    attachEmbeddingAsync(newEntry.id, embeddingTextFor(newEntry));
     return newEntry;
   }, [user]);
 
@@ -63,6 +89,12 @@ export function JournalProvider({ children }) {
     const updated = await updateJournal(id, updates);
     const mappedEntry = mapRow(updated);
     setEntries((prev) => prev.map((e) => (e.id === id ? mappedEntry : e)));
+    // Re-embed only when the meaningful text actually changed.
+    const textChanged =
+      'user_text' in updates || 'ai_summary' in updates || 'highlight' in updates;
+    if (textChanged) {
+      attachEmbeddingAsync(mappedEntry.id, embeddingTextFor(mappedEntry));
+    }
     return mappedEntry;
   }, []);
 

@@ -29,8 +29,15 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const signUp = useCallback(async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+  const signUp = useCallback(async (email, password, name) => {
+    // `options.data` becomes `raw_user_meta_data` on auth.users — the
+    // handle_new_user trigger reads `name` from there when creating profiles.
+    const trimmed = name?.trim();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: trimmed ? { data: { name: trimmed } } : undefined,
+    });
     if (error) throw error;
     return data;
   }, []);

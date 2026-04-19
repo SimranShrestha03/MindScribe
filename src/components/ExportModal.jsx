@@ -19,8 +19,23 @@ function nDaysAgoISO(n) {
   return d.toISOString().slice(0, 10);
 }
 
+// Trigger a browser download from an in-memory Blob. Revokes the object URL
+// after the click so we don't leak — the anchor only needs to exist long
+// enough for the download to start.
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function ExportModal({ onClose }) {
   const [range, setRange] = useState('7');
+  const [mode, setMode] = useState('email'); // 'email' | 'download'
   const [startDate, setStartDate] = useState(nDaysAgoISO(7));
   const [endDate, setEndDate] = useState(todayISO());
 
@@ -37,6 +52,87 @@ export function ExportModal({ onClose }) {
     return null;
   }, [isCustom, startDate, endDate]);
 
+  const runEmail = async (body) => {
+    const { data, error } = await supabase.functions.invoke('export-journal', { body });
+
+    if (error) {
+      let msg = error?.message || 'Export failed.';
+      try {
+        const ctx = await error?.context?.json?.();
+        if (ctx?.error) msg = ctx.error;
+      } catch {
+        // context not parseable; keep original message
+      }
+      throw new Error(msg);
+    }
+
+    if (data?.entryCount === 0) {
+      setStatus('error');
+      setErrorMsg('No entries found in that date range.');
+      return;
+    }
+
+    if (data?.error) throw new Error(data.error);
+
+    setStatus('success');
+    setSuccessMsg(
+      data?.email
+        ? `Export sent to ${data.email}. Check your inbox.`
+        : 'Export sent to your email. Check your inbox.'
+    );
+  };
+
+  // Download path needs to read a binary response body, which
+  // `supabase.functions.invoke` doesn't expose cleanly — so we hit the
+  // function URL directly with the user's access token.
+  const runDownload = async (body) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Not logged in.');
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-journal`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const contentType = res.headers.get('Content-Type') || '';
+
+    if (!res.ok || !contentType.includes('application/pdf')) {
+      // Function returned JSON (error or empty-range success) — surface it.
+      let msg = `Export failed (${res.status}).`;
+      try {
+        const json = await res.json();
+        if (json?.error) msg = json.error;
+        if (json?.entryCount === 0) {
+          setStatus('error');
+          setErrorMsg('No entries found in that date range.');
+          return;
+        }
+      } catch {
+        // non-JSON body; keep the generic message
+      }
+      throw new Error(msg);
+    }
+
+    const entryCount = Number(res.headers.get('X-Entry-Count')) || 0;
+    const blob = await res.blob();
+    const filename = `mindscribe-journal-${todayISO()}.pdf`;
+    downloadBlob(blob, filename);
+
+    setStatus('success');
+    setSuccessMsg(
+      entryCount > 0
+        ? `Downloaded ${entryCount} entr${entryCount === 1 ? 'y' : 'ies'} as PDF.`
+        : 'Downloaded your journal PDF.'
+    );
+  };
+
   const handleExport = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -49,41 +145,17 @@ export function ExportModal({ onClose }) {
 
     setStatus('submitting');
 
-    const body = isCustom
-      ? { range: 'custom', startDate, endDate }
-      : { range };
+    const body = {
+      ...(isCustom ? { range: 'custom', startDate, endDate } : { range }),
+      mode,
+    };
 
     try {
-      const { data, error } = await supabase.functions.invoke('export-journal', { body });
-
-      // supabase.functions.invoke puts non-2xx bodies in error.context
-      if (error) {
-        let msg = error?.message || 'Export failed.';
-        try {
-          const ctx = await error?.context?.json?.();
-          if (ctx?.error) msg = ctx.error;
-        } catch {
-          // context not parseable; keep original message
-        }
-        throw new Error(msg);
+      if (mode === 'download') {
+        await runDownload(body);
+      } else {
+        await runEmail(body);
       }
-
-      if (data?.entryCount === 0) {
-        setStatus('error');
-        setErrorMsg('No entries found in that date range.');
-        return;
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      setStatus('success');
-      setSuccessMsg(
-        data?.email
-          ? `Export sent to ${data.email}. Check your inbox.`
-          : 'Export sent to your email. Check your inbox.'
-      );
     } catch (err) {
       console.error('Export failed:', err);
       setStatus('error');
@@ -120,8 +192,40 @@ export function ExportModal({ onClose }) {
           </button>
         </div>
 
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          Delivery
+        </label>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setMode('email')}
+            disabled={submitting}
+            className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors border ${
+              mode === 'email'
+                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent'
+                : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            Email me
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('download')}
+            disabled={submitting}
+            className={`px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors border ${
+              mode === 'download'
+                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent'
+                : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            Download PDF
+          </button>
+        </div>
+
         <p className="text-xs text-slate-500 mb-4">
-          We will email you a ZIP containing a PDF of your entries.
+          {mode === 'email'
+            ? 'We will email you a ZIP containing a PDF of your entries.'
+            : 'The PDF will save to your device.'}
         </p>
 
         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
@@ -197,7 +301,11 @@ export function ExportModal({ onClose }) {
             disabled={submitting || status === 'success'}
             className="flex-1"
           >
-            {submitting ? 'Sending...' : status === 'success' ? 'Sent' : 'Export'}
+            {submitting
+              ? (mode === 'download' ? 'Preparing...' : 'Sending...')
+              : status === 'success'
+                ? (mode === 'download' ? 'Saved' : 'Sent')
+                : (mode === 'download' ? 'Download' : 'Email')}
           </Button>
         </div>
       </div>

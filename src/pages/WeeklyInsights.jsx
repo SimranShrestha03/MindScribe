@@ -9,6 +9,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { PatternEngine } from '../components/PatternEngine';
 import { HighlightsOfMonth } from '../components/HighlightsOfMonth';
+import { EmbeddingsBackfill } from '../components/EmbeddingsBackfill';
 import { countEmotions, formatDate } from '../utils/helpers';
 
 const FILTERS = [
@@ -339,6 +340,7 @@ export function WeeklyInsights() {
           <div className="mt-8">
             <PatternEngine entries={allEntries} />
             <HighlightsOfMonth entries={allEntries} />
+            <EmbeddingsBackfill />
           </div>
         </>
       )}
