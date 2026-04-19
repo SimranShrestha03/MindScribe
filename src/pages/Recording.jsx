@@ -47,7 +47,8 @@ export function Recording() {
 
     try {
       const result = await processTranscription(fullTranscript, { mood: pendingMood });
-      setCurrentEntry({ user_text: fullTranscript, type: pendingCategory, ...result });
+      const { cleaned_text, ...rest } = result;
+      setCurrentEntry({ user_text: cleaned_text || fullTranscript, type: pendingCategory, ...rest });
       setPendingMood(null);
       navigate('results');
     } catch (err) {

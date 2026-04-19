@@ -1,125 +1,105 @@
 # MindScribe
 
-**Speak your thoughts. Understand yourself.**
+**Your private voice journal, powered by AI.**
 
-MindScribe is a voice and text journaling app that turns what you say or write into structured reflections: an AI summary, emotion tags, a highlight line, and short supportive feedback. Entries and weekly insights are stored in **Supabase** with **email/password auth** and row-level security so each user only sees their own data.
-
----
-
-## Why MindScribe?
-
-Many people struggle to process thoughts and emotions after stressful or meaningful events. Traditional journaling takes effort and the right words, which is hard when you are overwhelmed.
-
-MindScribe lowers friction: speak or write, then review a structured reflection and emotional readout. Optional **Weekly Insights** summarizes patterns across your saved entries.
+Speak or write what's on your mind. MindScribe turns it into a structured reflection: a clean summary, emotion tags, a highlight moment, and warm personal feedback. Everything stays private in your own Supabase database.
 
 ---
 
-## Features
+## What it does
 
-- **Authentication:** Login and sign up on one screen (email + password). Session handled by Supabase Auth; the main app only loads after sign-in.
-- **Voice input:** Record using the browser Web Speech API (Chrome or Edge).
-- **Text input:** Write an entry from the Add Entry modal without visiting the recording screen.
-- **AI structuring:** Transcription or text is turned into `ai_summary`, `emotions`, `feedback`, and `highlight` via OpenAI or Claude (configurable).
-- **Results page:** Read back your words, summary, highlight, emotions, and feedback; edit fields; save or update in Supabase; mark favourites.
-- **Home:** Search (by summary text), category filters, entry cards with edit / favourite / delete, daily check-in modal, link to Insights, **Export**, **Theme toggle**, **Logout**.
-- **Weekly Insights:** Date ranges (today, 7 / 10 / 30 days), mood distribution, recent entries, on-demand AI period summary, optional save of insight rows to Supabase.
-- **Export to email:** Pick 7 / 30 / 90 days or a custom range and receive a ZIP containing a PDF of your entries by email. PDF generation, zipping, and email send happen in a Supabase Edge Function (`export-journal`) using `pdf-lib`, `jszip`, and Resend.
-- **Theme toggle:** Light or dark mode, persisted in `localStorage`. Applied before React hydrates so there is no flash on reload.
-- **Security model:** Frontend uses only the **anon** Supabase key. Tables use RLS with `user_id` defaulting from `auth.uid()`; inserts do not manually set `user_id` in app code. The Edge Function validates the user JWT and queries with the user-scoped client so RLS limits rows to the caller.
+1. **Record or write** — use your voice (Chrome/Edge) or type directly.
+2. **AI structures it** — you get a summary, highlight, emotions, and feedback. Your own words are cleaned up with proper grammar but kept in your voice.
+3. **Review and save** — edit any field, then save to your journal.
+4. **Look back** — search entries, ask your past self questions, and see patterns over time.
+
+---
+
+## Features at a glance
+
+| Feature | Description |
+|---------|-------------|
+| Auth | Email + password sign in / sign up. Each user sees only their own data. |
+| Voice input | Record with the Web Speech API. Live transcript shown as you speak. |
+| Text input | Write directly from the Add Entry modal. |
+| AI processing | Produces `ai_summary`, `highlight`, `emotions`, `feedback`, and a grammar-cleaned version of your words — all via a secure server-side LLM proxy. |
+| Smart search | Keyword search across summary, highlight, and emotions. Scored and ranked, max 20 results. |
+| Ask your past self | Ask a natural-language question (e.g. "How was I feeling last month?"). AI answers using your actual journal entries. |
+| Daily check-in | A quick mood tap at the top of the home screen, once per day. |
+| Insights | Mood distribution charts across any date range. |
+| Your Patterns | On-demand AI analysis of recurring emotional patterns from the last 7 days, written as an outside observer. |
+| Highlights This Month | AI distills your best moments from the last 30 days into a short, warm paragraph addressed to you. |
+| Export | Download a PDF of your entries for any date range, directly to your device. |
+| Theme | Light / dark toggle, persisted across sessions. |
+| Streak | 🔥 Daily journaling streak shown on the home screen. |
 
 ---
 
 ## Tech stack
 
-| Layer        | Choice |
-|--------------|--------|
-| UI           | React 18 (hooks) |
-| Styling      | Tailwind CSS 3 |
-| Build        | Vite 4 |
-| Speech (STT) | Web Speech API (Chrome / Edge) |
-| AI / LLM     | OpenAI or Anthropic Claude (`VITE_LLM_PROVIDER`) |
-| Auth + DB    | Supabase Auth + PostgreSQL (`@supabase/supabase-js`) |
+| Layer | Choice |
+|-------|--------|
+| Frontend | React 18 + Vite |
+| Styling | Tailwind CSS (class-based dark mode) |
+| Auth + Database | Supabase (email/password auth, PostgreSQL, RLS) |
+| LLM | OpenAI or Anthropic Claude — keys live **only** in Supabase Edge Function secrets, never in the browser |
+| Speech | Web Speech API (Chrome / Edge only) |
+| PDF export | `pdf-lib` inside a Supabase Edge Function |
 
 ---
 
-## Prerequisites
+## Getting started
 
-- **Node.js 18+** (see `environment.yml` if you use Conda)
-- **Chrome or Edge** for voice recording (Web Speech API)
-- A **Supabase** project with `journals` and `insights` tables, RLS, and policies tied to `auth.uid()`
-- An **OpenAI** and/or **Anthropic** API key for AI features
-
----
-
-## Setup
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/your-username/mindscribe.git
 cd mindscribe
-
-# Optional: Conda users
-# conda env create -f environment.yml && conda activate mindscribe
-
 npm install
 ```
 
-Create a `.env` file at the project root (see **Environment variables**). **Never commit `.env`**; it is listed in `.gitignore`.
+### 2. Create a `.env` file
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
+Only the **anon** key goes in the frontend. Never commit `.env`.
+
+### 3. Set up Supabase Edge Function secrets
+
+Your LLM API keys live server-side only:
+
+```bash
+supabase secrets set LLM_PROVIDER=claude          # or: openai
+supabase secrets set CLAUDE_API_KEY=sk-ant-...
+supabase secrets set OPENAI_API_KEY=sk-proj-...   # required for embeddings even if using Claude
+```
+
+### 4. Run locally
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in **Chrome or Edge**.
+Open [http://localhost:5173](http://localhost:5173) in **Chrome or Edge** (required for voice).
 
 ---
 
-## Environment variables
+## Database setup
 
-All client-side variables must use the `VITE_` prefix.
+You need three tables in Supabase with RLS enabled:
 
-```env
-# Supabase (required for auth and persistence)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
+- **`journals`** — `id`, `created_at`, `user_text`, `ai_summary`, `emotions` (jsonb), `feedback`, `highlight`, `type`, `is_favorite`, `embedding` (pgvector 1536, nullable)
+- **`insights`** — period summary records saved from the Insights page
+- **`llm_logs`** — one row per LLM call (tokens, model, success/failure)
 
-# LLM: openai or claude
-VITE_LLM_PROVIDER=openai
-VITE_OPENAI_API_KEY=your_openai_key
-VITE_CLAUDE_API_KEY=your_claude_key
-```
+All tables need a `user_id` column with:
+- Default: `auth.uid()`
+- RLS policy: `using (auth.uid() = user_id)`
 
-Use the **anon** key in the app only. Do **not** embed the service role key in frontend code.
-
-### Edge Function secrets (server-side only)
-
-Set on the Supabase project (never in `.env`):
-
-```bash
-supabase secrets set RESEND_API_KEY=re_xxx
-supabase secrets set RESEND_FROM='MindScribe <noreply@yourdomain.com>'
-supabase functions deploy export-journal
-```
-
-`SUPABASE_URL` and `SUPABASE_ANON_KEY` are auto-injected into the function runtime.
-
----
-
-## How to run locally
-
-```bash
-npm run dev      # Dev server with HMR (default port 5173)
-npm run build    # Production build to dist/
-npm run preview  # Preview the production build
-```
-
----
-
-## Typical flow
-
-1. Open the app and **sign up** or **log in**.
-2. On **Home**, optionally complete the daily check-in, then add an entry (voice or text).
-3. On **Results**, review AI output, edit if needed, **Save Entry** (persists to `journals`).
-4. Open **Insights** for range stats and **Generate AI Summary**; optionally **Save Insights** (writes to `insights`).
+A `profiles` table is also used, populated automatically by a trigger on `auth.users`.
 
 ---
 
@@ -127,50 +107,44 @@ npm run preview  # Preview the production build
 
 ```
 src/
-├── App.jsx                 # Auth gate + page router
-├── main.jsx                # Root: ThemeProvider > AuthProvider > JournalProvider > App
+├── App.jsx                  # Auth gate + page router
+├── main.jsx                 # Root: ThemeProvider > AuthProvider > JournalProvider
 ├── context/
-│   ├── AuthContext.jsx     # User session, signUp / signIn / signOut
-│   ├── JournalContext.jsx  # Page state, entries, Supabase helpers
-│   └── ThemeContext.jsx    # Light / dark theme + localStorage persistence
+│   ├── AuthContext.jsx      # Session management
+│   ├── JournalContext.jsx   # Entry state + Supabase helpers
+│   └── ThemeContext.jsx     # Light/dark theme
 ├── pages/
-│   ├── AuthPage.jsx        # Login / sign up
-│   ├── Home.jsx
-│   ├── Recording.jsx
-│   ├── Results.jsx
-│   └── WeeklyInsights.jsx
-├── components/             # Button, modals (incl. ExportModal), ThemeToggle, etc.
+│   ├── AuthPage.jsx         # Login / sign up
+│   ├── Home.jsx             # Feed, search, Ask, check-in
+│   ├── Recording.jsx        # Voice recording
+│   ├── Results.jsx          # Review + edit + save entry
+│   └── WeeklyInsights.jsx   # Stats, patterns, highlights
+├── components/              # Reusable UI (modals, cards, buttons)
 ├── services/
 │   ├── supabaseClient.js
-│   ├── supabaseService.js  # journals + insights CRUD
-│   └── llmService.js       # OpenAI / Claude
-├── hooks/
-├── utils/
-└── styles/
-supabase/
-└── functions/
-    └── export-journal/     # Deno Edge Function (PDF + ZIP + Resend)
+│   ├── supabaseService.js   # DB CRUD
+│   └── llmService.js        # All LLM calls (via proxy)
+├── hooks/                   # useDebounce, useSpeechRecognition
+└── utils/                   # helpers (emotions, dates, streak)
+
+supabase/functions/
+├── llm-proxy/               # Routes LLM calls (Claude/OpenAI), keeps keys server-side
+└── export-journal/          # Generates and returns journal PDF
 ```
 
 ---
 
-## Limitations
+## Deploying Edge Functions
 
-- Voice features need **Chrome or Edge** (Firefox lacks the needed Speech API support).
-- LLM output is interpretive, not clinical or diagnostic.
-- Production sites need HTTPS for secure cookies and APIs (localhost is fine for development).
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+```bash
+supabase functions deploy llm-proxy --no-verify-jwt
+supabase functions deploy export-journal --no-verify-jwt
+```
 
 ---
 
-## Future ideas
+## Notes
 
-- Export journal as PDF or Markdown
-- PWA and offline-friendly caching
-- Push notifications or gentle reminders
-- Broader language support in speech and prompts
+- Voice recording requires **Chrome or Edge**. Firefox does not support the Web Speech API.
+- LLM responses are reflective and personal — not clinical or diagnostic.
+- The app is designed for personal use. All data is scoped to the logged-in user via Supabase RLS.

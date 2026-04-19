@@ -155,7 +155,7 @@ const EMOTION_VOCAB =
 
 export async function processTranscription(userText, { mood, entryId } = {}) {
   const moodHint = mood
-    ? `\nContextual cue: before writing, they described their mood as "${mood}". Use only if it aligns with their words.`
+    ? `\nContextual cue: before writing, the person described their mood as "${mood}". Use only if it aligns with what they wrote.`
     : '';
 
   const prompt = `ROLE
@@ -166,6 +166,7 @@ User's raw words: "${userText}"${moodHint}
 
 OUTPUT — return ONLY this JSON (no markdown, no prose):
 {
+  "cleaned_text": "...",
   "ai_summary": "...",
   "highlight": "...",
   "emotions": ["...", "..."],
@@ -173,6 +174,13 @@ OUTPUT — return ONLY this JSON (no markdown, no prose):
 }
 
 FIELD RULES (each field has a distinct voice and purpose)
+
+cleaned_text
+- Fix spelling, grammar, punctuation, and run-on sentences from the raw spoken input.
+- Keep every word, idea, and sentence that the person said — do NOT summarise, cut content, or reorder their thoughts.
+- Keep their authentic voice and casual phrasing. Add commas, full stops, and paragraph breaks only where needed. Fix obvious word errors from speech-to-text (e.g. "sir" at the end of a sentence is likely a stutter/filler — remove it; "cuz" → "because").
+- Output should read like a lightly edited personal journal entry, not polished prose.
+- Do NOT add new sentences, opinions, or filler. Do NOT make it sound like a formal essay.
 
 ai_summary
 - FIRST PERSON ("I...").
@@ -195,10 +203,12 @@ emotions
 - No explanations, no duplicates.
 
 feedback
-- THIRD PERSON ("They..."). Sounds like a quiet observer noticing something — never "You should...".
-- 1-2 sentences. Reflective, not prescriptive. No commands, no imperatives.
-- Must NOT restate ai_summary or highlight. Add something neither of them says.
-- Example: "They seem to regain emotional balance when they slow down and connect with people they trust."
+- SECOND PERSON ("You..."). Like a close friend who genuinely sees you — warm, encouraging, and a little uplifting.
+- 1-2 sentences. Acknowledge something real from what they shared, then give them a small emotional boost. Make them feel heard, not analysed.
+- Must NOT restate ai_summary or highlight. Say something that adds — a quiet, honest observation that leaves them feeling good about themselves.
+- Good example: "You've been carrying a lot lately, and the fact that you're still showing up and pushing through says something real about you."
+- Another good example: "It's clear how much this matters to you — and honestly, the effort you're putting in deserves to be celebrated."
+- Do NOT sound clinical or AI-generated. No "it's evident that", no "this suggests", no "it seems that you". No empty praise like "great job!". Just speak naturally and mean it.
 
 NON-REDUNDANCY
 - ai_summary = what happened
@@ -457,21 +467,31 @@ RULES
 // First person — the user recognizing their own patterns.
 
 export async function generatePatterns(entries) {
-  const filtered = entries.filter((e) => e.ai_summary).slice(0, 30);
-  if (filtered.length < 3) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+
+  const filtered = entries
+    .filter((e) => {
+      if (!e.ai_summary) return false;
+      const d = new Date(e.date || e.created_at);
+      return d >= cutoff;
+    })
+    .slice(0, 30);
+
+  if (filtered.length < 2) {
     return { patterns: [] };
   }
 
   const context = compressEntries(filtered, 30);
 
   const prompt = `ROLE
-You are helping the user recognize recurring patterns in their own behavior, in their own voice.
+You are a quiet, perceptive observer reading someone's journal entries from the last 7 days. You surface patterns in their behavior — not to judge, just to reflect what you notice.
 
-INPUT — their journal entries (${filtered.length}):
+INPUT — their journal entries from the past 7 days (${filtered.length}):
 ${context}
 
 TASK
-Surface 3-5 specific personal patterns across:
+Surface 3-5 specific behavioral patterns across:
 - emotional trends (when and why certain feelings show up)
 - triggers (work, relationships, sleep, social settings, etc.)
 - recovery (what seems to restore them)
@@ -479,18 +499,72 @@ Surface 3-5 specific personal patterns across:
 OUTPUT — return ONLY this JSON:
 {
   "patterns": [
-    "I tend to... (1-2 sentences)",
-    "I often... (1-2 sentences)"
+    "They tend to... (1-2 sentences)",
+    "They often... (1-2 sentences)"
   ]
 }
 
 RULES
-- FIRST PERSON ("I tend to...", "I often...", "I recover when...").
+- THIRD PERSON ("They tend to...", "They often...", "They seem to recover when...").
 - Each pattern: 1-2 sentences. Specific to THESE entries. No generic journaling advice.
 - 3-5 patterns. Each must surface something different — no paraphrasing.
-- Plain language. No "the user", no "you".`;
+- Plain language. Never use "the user" or "you".`;
 
   const text = await runWithLog({ type: 'pattern', json: true }, prompt);
   const parsed = parseJSON(text);
   return { patterns: Array.isArray(parsed.patterns) ? parsed.patterns : [] };
+}
+
+// ─── 5. MONTHLY HIGHLIGHTS SYNTHESIS ────────────────────────────────────────
+// Takes raw highlights from the last 30 days and distills them into a
+// short, warm second-person narrative of the month's best moments.
+
+export async function generateMonthlyHighlightsSummary(entries) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+
+  const monthHighlights = entries
+    .filter((e) => {
+      if (!e.highlight?.trim()) return false;
+      const d = new Date(e.date || e.created_at);
+      return d >= cutoff;
+    })
+    .map((e) => ({
+      date: new Date(e.date || e.created_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      highlight: e.highlight.trim(),
+    }));
+
+  if (monthHighlights.length === 0) return null;
+
+  const highlightLines = monthHighlights
+    .map((h) => `${h.date}: ${h.highlight}`)
+    .join('\n');
+
+  const prompt = `ROLE
+You are a best friend who has been quietly reading someone's journal and wants to remind them how much happened this month. You're not a therapist, not a coach — just someone who genuinely cares and finds their moments worth celebrating.
+
+INPUT — journal highlights from the past 30 days:
+${highlightLines}
+
+TASK
+Write 1-2 short paragraphs (3-5 sentences total) directly to the person using "you" and "your". Pick only the most meaningful or emotionally rich highlights — not all of them.
+
+TONE
+- Warm, natural, conversational — like a message from a close friend
+- A little fun and alive, not stiff or clinical
+- Specific to THESE actual moments — no vague praise, no filler
+- Should make the person smile or feel seen, not evaluated
+
+RULES
+- SECOND PERSON ("you", "your"). Never "they", "the user", or any third-person phrasing.
+- Do NOT mention dates or turn it into a list.
+- No bullet points. No headers. Just flowing prose.
+- Only use what's in the input. Do not invent details.
+- Do NOT sound like AI — no "it's clear that", no "this shows", no "it's wonderful to see".`;
+
+  const { text } = await dispatch(prompt, { json: false });
+  return text.trim();
 }

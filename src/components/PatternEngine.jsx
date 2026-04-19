@@ -24,9 +24,12 @@ export function PatternEngine({ entries }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-4">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          🧠 Your Patterns
-        </p>
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            🧠 Your Patterns
+          </p>
+          <p className="text-xs text-slate-600 mt-0.5">Based on the last 7 days</p>
+        </div>
         {patterns && !loading && (
           <button
             onClick={handleGenerate}
