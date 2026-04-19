@@ -27,7 +27,7 @@ async function callClaude(prompt) {
   return data.content[0].text;
 }
 
-async function callOpenAI(prompt) {
+async function callOpenAI(prompt, json = true) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -37,7 +37,7 @@ async function callOpenAI(prompt) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
     }),
   });
 
@@ -51,7 +51,12 @@ async function callOpenAI(prompt) {
 }
 
 function callLLM(prompt) {
-  if (PROVIDER === 'openai') return callOpenAI(prompt);
+  if (PROVIDER === 'openai') return callOpenAI(prompt, true);
+  return callClaude(prompt);
+}
+
+function callLLMText(prompt) {
+  if (PROVIDER === 'openai') return callOpenAI(prompt, false);
   return callClaude(prompt);
 }
 
@@ -132,5 +137,99 @@ Rules:
 
   const text = await callLLM(prompt);
   return parseJSON(text);
+}
+
+// Detect a date range from a natural language question.
+// Returns { start: Date, label: string } or null (use all recent entries).
+function detectTimeframe(question) {
+  const q = question.toLowerCase();
+
+  if (/\btoday\b/.test(q)) {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return { start, label: 'today' };
+  }
+  if (/\byesterday\b/.test(q)) {
+    const start = new Date();
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    return { start, end, label: 'yesterday' };
+  }
+  if (/\b(last|past|this)\s+week\b/.test(q)) {
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+    return { start, label: 'the past week' };
+  }
+  if (/\b(last|past|this)\s+month\b/.test(q)) {
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return { start, label: 'the past month' };
+  }
+  if (/\b(last|past|this)\s+year\b/.test(q)) {
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 1);
+    return { start, label: 'the past year' };
+  }
+  const nDaysMatch = q.match(/(?:last|past)\s+(\d+)\s+days?/);
+  if (nDaysMatch) {
+    const days = parseInt(nDaysMatch[1], 10);
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    return { start, label: `the past ${days} days` };
+  }
+  return null;
+}
+
+function compressEntries(entries) {
+  return entries
+    .slice(0, 20)
+    .map((e) => {
+      const date = new Date(e.date || e.created_at).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric',
+      });
+      const emotions = Array.isArray(e.emotions) ? e.emotions.join(', ') : '';
+      return `Date: ${date}\nSummary: ${e.ai_summary || '(no summary)'}\nEmotions: ${emotions || 'none'}`;
+    })
+    .join('\n\n---\n\n');
+}
+
+export async function askPastSelf(question, allEntries) {
+  const timeframe = detectTimeframe(question);
+
+  let relevant = [...allEntries];
+  if (timeframe) {
+    relevant = allEntries.filter((e) => {
+      const created = new Date(e.date || e.created_at);
+      if (timeframe.end && created >= timeframe.end) return false;
+      return created >= timeframe.start;
+    });
+  }
+
+  if (relevant.length === 0) {
+    return "There are no journal entries in that time period yet. Start writing and come back to ask!";
+  }
+
+  const label = timeframe?.label ?? 'your recent entries';
+  const context = compressEntries(relevant);
+
+  const prompt = `You are analyzing a user's past journal entries to answer their personal question honestly and meaningfully.
+
+Question: "${question}"
+
+Journal entries from ${label} (${Math.min(relevant.length, 20)} shown):
+
+${context}
+
+Rules:
+- Answer ONLY using what appears in the provided entries; do not invent details
+- Write in second person (You felt..., You noticed..., Your mood...)
+- Focus on emotional patterns, recurring themes, or specific moments
+- Be specific: reference actual emotions and content from the entries
+- Keep the answer to 3-5 sentences, concise, warm, and reflective
+- If the entries do not contain enough relevant information, say so honestly in one sentence`;
+
+  return await callLLMText(prompt);
 }
 
