@@ -30,9 +30,7 @@ MindScribe helps users journal by **voice** (Web Speech API) or **text**. An LLM
 |----------|------|
 | `VITE_SUPABASE_URL` | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Publishable anon key (never service_role in frontend) |
-| `VITE_LLM_PROVIDER` | `openai` or `claude` |
-| `VITE_OPENAI_API_KEY` | OpenAI key when provider is openai |
-| `VITE_CLAUDE_API_KEY` | Anthropic key when provider is claude |
+| `VITE_LLM_PROVIDER` | **No longer used in the browser.** Provider is now set via the `LLM_PROVIDER` Edge Function secret. |
 
 Optional Conda users can install Node via `environment.yml`, then run `npm install`.
 
@@ -40,8 +38,13 @@ Edge Function secrets (set via `supabase secrets set`, never in `.env`):
 
 | Secret | Role |
 |--------|------|
+| `LLM_PROVIDER` | `openai` or `claude` (default: `claude`) |
+| `CLAUDE_API_KEY` | Anthropic secret key — **server only, never in browser** |
+| `OPENAI_API_KEY` | OpenAI secret key — **server only, never in browser** |
 | `RESEND_API_KEY` | Resend email API key (`re_...`) |
 | `RESEND_FROM` | Sender address, e.g. `MindScribe <noreply@yourdomain.com>` |
+
+> **Security:** `VITE_OPENAI_API_KEY` and `VITE_CLAUDE_API_KEY` have been **removed** from the browser bundle. All LLM keys live exclusively in Supabase Edge Function secrets.
 
 ---
 
@@ -87,9 +90,12 @@ File: `src/pages/AuthPage.jsx`
 
 File: `src/context/JournalContext.jsx`
 
-**State:** `page`, `navigate`, `currentEntry`, `setCurrentEntry`, `entries`, `pendingCategory`, `setPendingCategory`, `pendingMood`, `setPendingMood`, `autoEditMode`, `setAutoEditMode`.
+**State:** `page`, `navigate`, `currentEntry`, `setCurrentEntry`, `entries`, `hasMore`, `pendingCategory`, `setPendingCategory`, `pendingMood`, `setPendingMood`, `autoEditMode`, `setAutoEditMode`.
 
-**Persistence helpers:** `saveEntry`, `updateEntry`, `deleteEntry`, `fetchEntries`, `fetchEntriesByRange`.
+**Persistence helpers:** `saveEntry`, `updateEntry`, `deleteEntry`, `fetchEntries`, `fetchMoreEntries`, `fetchEntriesByRange`.
+
+- `fetchEntries` — loads page 0 and resets the entry list (called on mount).
+- `fetchMoreEntries` — appends page N+1; used by the infinite-scroll sentinel in Home.
 
 **Important:** When `user?.id` changes (login, logout, switch), an effect resets all state to defaults, preventing cross-user data leaks in memory.
 
@@ -108,7 +114,7 @@ File: `src/context/JournalContext.jsx`
 | `saveJournal` | Insert into `journals`. Does **not** set `user_id`; DB default `auth.uid()` applies. |
 | `updateJournal` | Update by `id`. |
 | `deleteJournal` | Delete by `id`. |
-| `getAllJournals` | Select all for current user (RLS scoped), ordered newest first. |
+| `getAllJournals(page=0)` | Paginated select (50 rows/page, newest first). Returns `{ data, hasMore }`. |
 | `getJournalsByDateRange` | `created_at >= startDate`, ordered newest first. |
 | `saveInsightRecord` | Insert into `insights` (period summary save from Weekly Insights). |
 
@@ -242,8 +248,10 @@ Core principle: *"My thoughts reflected back to me in my own voice"*, not *"An A
 
 | Provider | Model | Notes |
 |----------|-------|-------|
-| `claude` (default) | `claude-sonnet-4-6` | Browser-direct via `anthropic-dangerous-direct-browser-access`. |
-| `openai` | `gpt-4o-mini` | JSON mode enforced via `response_format` when caller expects JSON. |
+| `claude` (default) | `claude-sonnet-4-6` | Routed through `llm-proxy` Edge Function. Prompt caching enabled (`cache_control: ephemeral`) on the static ROLE/RULES prefix — cuts input tokens ~80% on repeat calls. |
+| `openai` | `gpt-4o-mini` | Routed through `llm-proxy` Edge Function. JSON mode enforced via `response_format` when caller expects JSON. |
+
+Both providers retry 429 / 5xx up to 3 times with exponential back-off (500ms, 1000ms) before surfacing an error. Retry logic lives in the Edge Function (`fetchWithRetry`).
 
 Both transports return `{ text, usage, model }`. Usage is normalized to `{ prompt_tokens, completion_tokens, total_tokens }` (Claude's `input_tokens`/`output_tokens` are mapped).
 
@@ -336,8 +344,12 @@ Response: `{ success: true, entryCount: N, email: "..." }`. Empty range returns 
 | `npm run dev` | Dev server (port 5173) |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve production build locally |
-| `supabase functions deploy export-journal --no-verify-jwt` | Deploy Edge Function |
-| `supabase secrets set KEY=value` | Set Edge Function secret |
+| `supabase functions deploy export-journal --no-verify-jwt` | Deploy export Edge Function |
+| `supabase functions deploy llm-proxy --no-verify-jwt` | Deploy LLM proxy Edge Function |
+| `supabase secrets set LLM_PROVIDER=claude` | Set active LLM provider |
+| `supabase secrets set CLAUDE_API_KEY=sk-ant-...` | Set Anthropic key (server-only) |
+| `supabase secrets set OPENAI_API_KEY=sk-proj-...` | Set OpenAI key (server-only) |
+| `supabase secrets set KEY=value` | Set any other Edge Function secret |
 
 ---
 
@@ -349,9 +361,9 @@ Response: `{ success: true, entryCount: N, email: "..." }`. Empty range returns 
 | `main.jsx` | Provider root: Theme > Auth > Journal |
 | `context/ThemeContext.jsx` | Light/dark theme |
 | `context/AuthContext.jsx` | Supabase session |
-| `context/JournalContext.jsx` | Navigation + entries state |
+| `context/JournalContext.jsx` | Navigation + entries state + pagination (`hasMore`, `fetchMoreEntries`) |
 | `pages/AuthPage.jsx` | Login / signup |
-| `pages/Home.jsx` | Main feed, search, Ask, daily check-in |
+| `pages/Home.jsx` | Main feed, search, Ask, daily check-in, infinite scroll |
 | `pages/Recording.jsx` | Voice recording |
 | `pages/Results.jsx` | Entry read-back + edit + save |
 | `pages/WeeklyInsights.jsx` | Trends, AI period summary |
@@ -364,8 +376,9 @@ Response: `{ success: true, entryCount: N, email: "..." }`. Empty range returns 
 | `components/ThemeToggle.jsx` | Sun/moon toggle button |
 | `utils/helpers.js` | Emotion colors, `countEmotions`, `formatDate`, `calculateStreak` |
 | `services/supabaseClient.js` | Supabase singleton |
-| `services/supabaseService.js` | All DB CRUD functions |
-| `services/llmService.js` | All LLM calls |
+| `services/supabaseService.js` | All DB CRUD functions (paginated `getAllJournals`) |
+| `services/llmService.js` | All LLM calls — routed through llm-proxy Edge Function |
 | `hooks/useDebounce.js` | Debounce utility |
 | `hooks/useSpeechRecognition.js` | Web Speech API wrapper |
 | `supabase/functions/export-journal/index.ts` | Edge Function: PDF + ZIP + email |
+| `supabase/functions/llm-proxy/index.ts` | Edge Function: LLM proxy (Claude/OpenAI, keys server-only, retry, prompt caching) |
