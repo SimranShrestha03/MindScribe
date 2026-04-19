@@ -42,8 +42,11 @@ File: `src/main.jsx`
 
 Wrap order (outer to inner):
 
-1. **`AuthProvider`** (`src/context/AuthContext.jsx`): Loads session with `supabase.auth.getSession()`, subscribes to `onAuthStateChange`. Exposes `user`, `loading`, `signUp`, `signIn`, `signOut`.
-2. **`JournalProvider`** (`src/context/JournalContext.jsx`): Page routing state, journal entries cache, Supabase helpers.
+1. **`ThemeProvider`** (`src/context/ThemeContext.jsx`): `theme` ('dark' | 'light'), `toggleTheme`. Persists to `localStorage` key `mindscribe_theme`. Sets `data-theme` attribute and matching class (`dark` / `light`) on `<html>`.
+2. **`AuthProvider`** (`src/context/AuthContext.jsx`): Loads session with `supabase.auth.getSession()`, subscribes to `onAuthStateChange`. Exposes `user`, `loading`, `signUp`, `signIn`, `signOut`.
+3. **`JournalProvider`** (`src/context/JournalContext.jsx`): Page routing state, journal entries cache, Supabase helpers.
+
+`index.html` runs a tiny pre-React script that reads the stored theme and sets `data-theme` and the matching class on `<html>` before React hydrates, so there is no flash on reload.
 
 ---
 
@@ -114,7 +117,7 @@ File: `src/context/JournalContext.jsx`
 
 ### Home (`src/pages/Home.jsx`)
 
-Header: title, date, **Insights** button, **Logout** (`signOut`). Search filters by `ai_summary`. Six category cards (including Favorites via `is_favorite`). Entry list with menu: edit, favourite toggle, delete. Loads entries with `fetchEntries` on mount. Daily check-in modal uses `localStorage` key `mindscribe_checkin_date`. FAB opens Add Entry modal.
+Header: title, date, **ThemeToggle**, **Export** (opens `ExportModal`), **Insights** button, **Logout** (`signOut`). Search filters by `ai_summary`. Six category cards (including Favorites via `is_favorite`). Entry list with menu: edit, favourite toggle, delete. Loads entries with `fetchEntries` on mount. Daily check-in modal uses `localStorage` key `mindscribe_checkin_date`. FAB opens Add Entry modal.
 
 ### Add Entry modal (`src/components/AddEntryModal.jsx`)
 
@@ -130,7 +133,15 @@ Sections: My Words, AI Summary, Highlight, Emotions, Feedback. Edit mode; Save i
 
 ### Weekly Insights (`src/pages/WeeklyInsights.jsx`)
 
-Tabs: Today, 7 / 10 / 30 days. Fetches via `fetchEntriesByRange`. Mood bars, stats, recent entries. **Generate AI Summary** calls `generatePeriodSummary`. **Save Insights** calls `saveInsightRecord`. Header includes **Logout**.
+Tabs: Today, 7 / 10 / 30 days. Fetches via `fetchEntriesByRange`. Mood bars, stats, recent entries. **Generate AI Summary** calls `generatePeriodSummary`. **Save Insights** calls `saveInsightRecord`. Header includes **ThemeToggle** and **Logout**.
+
+### Export modal (`src/components/ExportModal.jsx`)
+
+Range select (`7`, `30`, `90`, `custom`); custom mode shows two `<input type="date">` fields. On submit calls `supabase.functions.invoke('export-journal', { body })`. States: `idle`, `submitting`, `success`, `error`. Shows backend `entryCount` and the user email on success; surfaces a friendly message when no entries match.
+
+### Theme (`src/context/ThemeContext.jsx`, `src/components/ThemeToggle.jsx`)
+
+`ThemeToggle` is a small icon button (sun in dark mode, moon in light mode) shown on Home, Insights, and AuthPage headers. Toggling flips `data-theme` between `dark` and `light` and persists via `localStorage`. Light mode is achieved with overrides in `src/styles/globals.css` under `[data-theme='light']` that remap the slate utility classes used by the app: no markup changes needed elsewhere.
 
 ---
 
@@ -148,8 +159,32 @@ Provider and model names are configured in code and env.
 ## Shared UI and utilities
 
 - `src/components/Button.jsx`: variants include loading spinner.
-- `src/components/EmotionTag.jsx`, `MoodBar.jsx`, `LoadingSpinner.jsx`, modals under `components/`.
+- `src/components/EmotionTag.jsx`, `MoodBar.jsx`, `LoadingSpinner.jsx`, `ThemeToggle.jsx`, modals (`AddEntryModal`, `CheckInModal`, `ExportModal`) under `components/`.
 - `src/utils/helpers.js`: dates, emotion counts, colors for charts and tags.
+
+## Edge Function: `export-journal`
+
+Path: `supabase/functions/export-journal/index.ts` (Deno).
+
+Pipeline:
+
+1. Read `Authorization` header; create a Supabase client with that JWT (RLS scoped to caller).
+2. `supabase.auth.getUser()` to verify; reject 401 if missing.
+3. Resolve `range` (`'7'|'30'|'90'`) or `'custom'` with `startDate`/`endDate` (ISO `YYYY-MM-DD`); reject 400 on invalid input.
+4. SELECT `journals` rows in `[start, end]`, ascending by `created_at`.
+5. Build a paginated PDF with `pdf-lib` (Helvetica + bold), wrapping text per page width; sanitize text to WinAnsi to avoid font errors.
+6. Zip as `journal.pdf` inside `journal-export.zip` with `jszip`.
+7. POST to Resend `/emails` with the ZIP attached as base64. Subject: "Your MindScribe Journal Export".
+
+Required secrets on the project: `RESEND_API_KEY`, `RESEND_FROM`. `SUPABASE_URL` and `SUPABASE_ANON_KEY` are auto-injected.
+
+Response:
+
+```json
+{ "success": true, "entryCount": 12, "email": "user@example.com" }
+```
+
+Empty range returns `entryCount: 0`; the modal surfaces this as "No entries found in that date range."
 
 ---
 
@@ -184,12 +219,15 @@ Provider and model names are configured in code and env.
 |------|------|
 | `App.jsx` | Auth gate + page switch |
 | `main.jsx` | Providers root |
+| `context/ThemeContext.jsx` | Light / dark theme |
 | `context/AuthContext.jsx` | Session |
 | `context/JournalContext.jsx` | Navigation + journals state |
 | `pages/AuthPage.jsx` | Login / signup |
 | `pages/Home.jsx`, `Recording.jsx`, `Results.jsx`, `WeeklyInsights.jsx` | Main UX |
+| `components/ExportModal.jsx`, `ThemeToggle.jsx` | Export and theme UI |
 | `services/supabaseClient.js` | Supabase singleton |
 | `services/supabaseService.js` | DB operations |
 | `services/llmService.js` | LLM calls |
+| `supabase/functions/export-journal/index.ts` | Edge Function: PDF + ZIP + Resend email |
 
 This file should stay aligned when you add major features so assistants can answer without scanning the entire tree every time.

@@ -5,6 +5,8 @@ import { CheckInModal } from '../components/CheckInModal';
 import { AddEntryModal } from '../components/AddEntryModal';
 import { EmotionTag } from '../components/EmotionTag';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ExportModal } from '../components/ExportModal';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 const CATEGORIES = [
   { value: 'journal',   label: 'Daily Journal', emoji: '📓' },
@@ -163,6 +165,7 @@ export function Home() {
   const [fetchError,    setFetchError]    = useState(null);
   const [showCheckIn,   setShowCheckIn]   = useState(false);
   const [showAddEntry,  setShowAddEntry]  = useState(false);
+  const [showExport,    setShowExport]    = useState(false);
   const [activeCategory, setActiveCategory] = useState(null);
   const [searchTerm,    setSearchTerm]    = useState('');
   const [openMenuId,    setOpenMenuId]    = useState(null);
@@ -258,6 +261,9 @@ export function Home() {
       {showAddEntry && (
         <AddEntryModal onClose={() => setShowAddEntry(false)} />
       )}
+      {showExport && (
+        <ExportModal onClose={() => setShowExport(false)} />
+      )}
 
       <div className="max-w-2xl mx-auto px-4 pt-10 pb-6">
 
@@ -272,6 +278,18 @@ export function Home() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-violet-400 transition-colors px-3 py-2 rounded-xl border border-slate-800 hover:border-violet-800"
+              aria-label="Export journal"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Export
+            </button>
             <button
               onClick={() => navigate('insights')}
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-violet-400 transition-colors px-3 py-2 rounded-xl border border-slate-800 hover:border-violet-800"

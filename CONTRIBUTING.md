@@ -29,6 +29,16 @@ Open Chrome or Edge at [http://localhost:5173](http://localhost:5173).
 - Use a **development** Supabase project or a dedicated schema; never commit real user data or **service role** keys.
 - To verify auth-related changes: sign up a test user, confirm you only see your own rows under RLS, then test **Logout** and ensure the app returns to the login screen and lists clear.
 
+### Working on Edge Functions
+
+- Code lives under `supabase/functions/<name>/`. The Deno runtime is used (`https://esm.sh/...` imports).
+- Set required server secrets with `supabase secrets set KEY=value`; never put them in `.env` or commit them.
+- Deploy with `supabase functions deploy <name>`. For `export-journal`, you also need `RESEND_API_KEY` and `RESEND_FROM` configured.
+
+### Theming
+
+- Components keep using the existing dark slate utility classes; the light theme is applied via global overrides in `src/styles/globals.css` under `[data-theme='light']`. Avoid adding inline color values when a slate utility already exists.
+
 ---
 
 ## Branch naming

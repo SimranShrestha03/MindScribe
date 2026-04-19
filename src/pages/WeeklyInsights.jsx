@@ -6,6 +6,7 @@ import { saveInsightRecord } from '../services/supabaseService';
 import { Button } from '../components/Button';
 import { MoodBar } from '../components/MoodBar';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { countEmotions, formatDate } from '../utils/helpers';
 
 const FILTERS = [
@@ -148,17 +149,20 @@ export function WeeklyInsights() {
         <h1 className="text-base font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
           Insights
         </h1>
-        <button
-          onClick={handleLogout}
-          className="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1 text-sm"
-          aria-label="Log out"
-        >
-          Logout
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={handleLogout}
+            className="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1 text-sm"
+            aria-label="Log out"
+          >
+            Logout
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Date filter tabs */}

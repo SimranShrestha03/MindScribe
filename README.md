@@ -21,9 +21,11 @@ MindScribe lowers friction: speak or write, then review a structured reflection 
 - **Text input:** Write an entry from the Add Entry modal without visiting the recording screen.
 - **AI structuring:** Transcription or text is turned into `ai_summary`, `emotions`, `feedback`, and `highlight` via OpenAI or Claude (configurable).
 - **Results page:** Read back your words, summary, highlight, emotions, and feedback; edit fields; save or update in Supabase; mark favourites.
-- **Home:** Search (by summary text), category filters, entry cards with edit / favourite / delete, daily check-in modal, link to Insights, **Logout**.
+- **Home:** Search (by summary text), category filters, entry cards with edit / favourite / delete, daily check-in modal, link to Insights, **Export**, **Theme toggle**, **Logout**.
 - **Weekly Insights:** Date ranges (today, 7 / 10 / 30 days), mood distribution, recent entries, on-demand AI period summary, optional save of insight rows to Supabase.
-- **Security model:** Frontend uses only the **anon** Supabase key. Tables use RLS with `user_id` defaulting from `auth.uid()`; inserts do not manually set `user_id` in app code.
+- **Export to email:** Pick 7 / 30 / 90 days or a custom range and receive a ZIP containing a PDF of your entries by email. PDF generation, zipping, and email send happen in a Supabase Edge Function (`export-journal`) using `pdf-lib`, `jszip`, and Resend.
+- **Theme toggle:** Light or dark mode, persisted in `localStorage`. Applied before React hydrates so there is no flash on reload.
+- **Security model:** Frontend uses only the **anon** Supabase key. Tables use RLS with `user_id` defaulting from `auth.uid()`; inserts do not manually set `user_id` in app code. The Edge Function validates the user JWT and queries with the user-scoped client so RLS limits rows to the caller.
 
 ---
 
@@ -88,6 +90,18 @@ VITE_CLAUDE_API_KEY=your_claude_key
 
 Use the **anon** key in the app only. Do **not** embed the service role key in frontend code.
 
+### Edge Function secrets (server-side only)
+
+Set on the Supabase project (never in `.env`):
+
+```bash
+supabase secrets set RESEND_API_KEY=re_xxx
+supabase secrets set RESEND_FROM='MindScribe <noreply@yourdomain.com>'
+supabase functions deploy export-journal
+```
+
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are auto-injected into the function runtime.
+
 ---
 
 ## How to run locally
@@ -114,17 +128,18 @@ npm run preview  # Preview the production build
 ```
 src/
 ├── App.jsx                 # Auth gate + page router
-├── main.jsx                # Root: AuthProvider > JournalProvider > App
+├── main.jsx                # Root: ThemeProvider > AuthProvider > JournalProvider > App
 ├── context/
 │   ├── AuthContext.jsx     # User session, signUp / signIn / signOut
-│   └── JournalContext.jsx  # Page state, entries, Supabase helpers
+│   ├── JournalContext.jsx  # Page state, entries, Supabase helpers
+│   └── ThemeContext.jsx    # Light / dark theme + localStorage persistence
 ├── pages/
 │   ├── AuthPage.jsx        # Login / sign up
 │   ├── Home.jsx
 │   ├── Recording.jsx
 │   ├── Results.jsx
 │   └── WeeklyInsights.jsx
-├── components/             # Button, modals, tags, charts, etc.
+├── components/             # Button, modals (incl. ExportModal), ThemeToggle, etc.
 ├── services/
 │   ├── supabaseClient.js
 │   ├── supabaseService.js  # journals + insights CRUD
@@ -132,6 +147,9 @@ src/
 ├── hooks/
 ├── utils/
 └── styles/
+supabase/
+└── functions/
+    └── export-journal/     # Deno Edge Function (PDF + ZIP + Resend)
 ```
 
 ---

@@ -76,3 +76,4 @@ screenshots/*.png
 *.prompt.txt
 *.response.json
 
+claude.md
