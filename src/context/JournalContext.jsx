@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import {
   saveJournal,
   updateJournal,
@@ -33,6 +33,10 @@ export function JournalProvider({ children }) {
   const [pendingMood, setPendingMood] = useState(null);
   const [autoEditMode, setAutoEditMode] = useState(false);
 
+  // Pagination state for the home feed.
+  const [hasMore, setHasMore] = useState(false);
+  const pageIndexRef = useRef(0); // mutable ref so callbacks don't go stale
+
   // Reset all per-user state whenever the active user changes (login/logout/switch).
   useEffect(() => {
     setPage('home');
@@ -41,6 +45,8 @@ export function JournalProvider({ children }) {
     setPendingCategory('journal');
     setPendingMood(null);
     setAutoEditMode(false);
+    setHasMore(false);
+    pageIndexRef.current = 0;
   }, [user?.id]);
 
   const navigate = useCallback((p) => setPage(p), []);
@@ -65,11 +71,39 @@ export function JournalProvider({ children }) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
+  /**
+   * fetchEntries — loads the first page (page 0) and resets the list.
+   * Called on mount and after user switches.
+   */
   const fetchEntries = useCallback(async () => {
-    const rows = await getAllJournals();
-    const mapped = rows.map(mapRow);
+    pageIndexRef.current = 0;
+    const { data, hasMore: more } = await getAllJournals(0);
+    const mapped = data.map(mapRow);
     setEntries(mapped);
+    setHasMore(more);
     return mapped;
+  }, []);
+
+  /**
+   * fetchMoreEntries — appends the next page to the existing list.
+   * Returns false if there are no more pages.
+   */
+  const fetchMoreEntries = useCallback(async () => {
+    const nextPage = pageIndexRef.current + 1;
+    const { data, hasMore: more } = await getAllJournals(nextPage);
+    if (data.length === 0) {
+      setHasMore(false);
+      return false;
+    }
+    pageIndexRef.current = nextPage;
+    setEntries((prev) => {
+      // De-duplicate by id in case a new entry was inserted between pages.
+      const existing = new Set(prev.map((e) => e.id));
+      const fresh = data.map(mapRow).filter((e) => !existing.has(e.id));
+      return [...prev, ...fresh];
+    });
+    setHasMore(more);
+    return true;
   }, []);
 
   const fetchEntriesByRange = useCallback(async (days) => {
@@ -91,10 +125,12 @@ export function JournalProvider({ children }) {
         currentEntry,
         setCurrentEntry,
         entries,
+        hasMore,
         saveEntry,
         updateEntry,
         deleteEntry,
         fetchEntries,
+        fetchMoreEntries,
         fetchEntriesByRange,
         pendingCategory,
         setPendingCategory,

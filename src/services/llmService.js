@@ -1,76 +1,61 @@
 import { supabase } from './supabaseClient';
 
-const PROVIDER = import.meta.env.VITE_LLM_PROVIDER || 'claude';
-const CLAUDE_API_KEY = import.meta.env.VITE_CLAUDE_API_KEY;
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+// ─── Transport — calls the llm-proxy Edge Function ────────────────────────
+// API keys (Claude / OpenAI) live ONLY in Supabase secrets now.
+// The browser sends the user's JWT; the Edge Function validates it before
+// ever touching an LLM key.
 
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
-const OPENAI_MODEL = 'gpt-4o-mini';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-// ─── Transport (returns { text, usage, model }) ────────────────────────────
+// Retry helper — handles 429 / 5xx with exponential backoff (3 attempts).
+async function fetchWithRetry(url, init, maxAttempts = 3) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      const delay = 500 * 2 ** (attempt - 1); // 500ms → 1000ms
+      await new Promise((r) => setTimeout(r, delay));
+    }
+    let res;
+    try {
+      res = await fetch(url, init);
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+    // Retry on rate-limit or transient server errors.
+    if (res.status === 429 || res.status >= 500) {
+      lastErr = new Error(`HTTP ${res.status}`);
+      continue;
+    }
+    return res;
+  }
+  throw lastErr ?? new Error('LLM request failed after retries');
+}
 
-async function callClaude(prompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+async function dispatch(prompt, { json }) {
+  // Get the current user session to forward as Authorization header.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('No active session — cannot call LLM proxy.');
+
+  const proxyUrl = `${SUPABASE_URL}/functions/v1/llm-proxy`;
+
+  const response = await fetchWithRetry(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    body: JSON.stringify({ prompt, json }),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Claude API error: ${response.status}`);
+    throw new Error(err.error || `LLM proxy error: ${response.status}`);
   }
 
   const data = await response.json();
-  const usage = {
-    prompt_tokens: data.usage?.input_tokens ?? null,
-    completion_tokens: data.usage?.output_tokens ?? null,
-    total_tokens:
-      (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) || null,
-  };
-  return { text: data.content[0].text, usage, model: data.model || CLAUDE_MODEL };
-}
-
-async function callOpenAI(prompt, json = true) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      ...(json ? { response_format: { type: 'json_object' } } : {}),
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `OpenAI API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const usage = {
-    prompt_tokens: data.usage?.prompt_tokens ?? null,
-    completion_tokens: data.usage?.completion_tokens ?? null,
-    total_tokens: data.usage?.total_tokens ?? null,
-  };
-  return { text: data.choices[0].message.content, usage, model: data.model || OPENAI_MODEL };
-}
-
-function dispatch(prompt, { json }) {
-  if (PROVIDER === 'openai') return callOpenAI(prompt, json);
-  return callClaude(prompt);
+  return { text: data.text, usage: data.usage, model: data.model };
 }
 
 // ─── LLM usage logging ──────────────────────────────────────────────────────
@@ -125,7 +110,7 @@ async function runWithLog({ type, entryId, insightId, json }, prompt) {
       type,
       entryId,
       insightId,
-      model: model || (PROVIDER === 'openai' ? OPENAI_MODEL : CLAUDE_MODEL),
+      model,
       usage: null,
       success: false,
       error: err?.message || String(err),

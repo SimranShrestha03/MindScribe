@@ -60,14 +60,25 @@ export async function updateJournal(id, updates) {
   return data;
 }
 
-export async function getAllJournals() {
+const PAGE_SIZE = 50;
+
+/**
+ * Paginated journal fetch.
+ * @param {number} page  0-indexed page number (default 0)
+ * @returns {{ data: object[], hasMore: boolean }}
+ */
+export async function getAllJournals(page = 0) {
+  const from = page * PAGE_SIZE;
+  const to   = from + PAGE_SIZE - 1; // inclusive upper bound for Supabase range()
+
   const { data, error } = await supabase
     .from('journals')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (error) throw error;
-  return data;
+  return { data: data ?? [], hasMore: (data ?? []).length === PAGE_SIZE };
 }
 
 export async function getJournalsByDateRange(startDate) {

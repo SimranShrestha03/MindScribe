@@ -194,7 +194,6 @@ export function Home() {
     localStorage.setItem(TODAY_KEY, new Date().toDateString());
     setPendingMood(mood);
     setShowCheckIn(false);
-    setShowAddEntry(true);
   };
 
   const handleCheckInDismiss = () => {
