@@ -7,6 +7,8 @@ import { Button } from '../components/Button';
 import { MoodBar } from '../components/MoodBar';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { PatternEngine } from '../components/PatternEngine';
+import { HighlightsOfMonth } from '../components/HighlightsOfMonth';
 import { countEmotions, formatDate } from '../utils/helpers';
 
 const FILTERS = [
@@ -38,8 +40,14 @@ function InsightCard({ label, labelColor = 'text-slate-500', iconPath, iconBg, c
 }
 
 export function WeeklyInsights() {
-  const { navigate, fetchEntriesByRange } = useJournal();
+  const { navigate, fetchEntriesByRange, entries: allEntries, fetchEntries } = useJournal();
   const { signOut } = useAuth();
+
+  useEffect(() => {
+    if (allEntries.length === 0) {
+      fetchEntries().catch((err) => console.error(err));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogout = async () => {
     try {
@@ -326,6 +334,12 @@ export function WeeklyInsights() {
           )}
 
           {genError && <p className="text-red-400 text-sm mt-4 text-center">{genError}</p>}
+
+          {/* Pattern Engine + Highlights — run on the full entry history, not the range tab */}
+          <div className="mt-8">
+            <PatternEngine entries={allEntries} />
+            <HighlightsOfMonth entries={allEntries} />
+          </div>
         </>
       )}
     </div>

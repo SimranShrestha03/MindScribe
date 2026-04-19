@@ -9,6 +9,7 @@ import { EmotionTag } from '../components/EmotionTag';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ExportModal } from '../components/ExportModal';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { StreakBadge } from '../components/StreakBadge';
 
 const CATEGORIES = [
   { value: 'journal',   label: 'Daily Journal', emoji: '📓' },
@@ -334,6 +335,13 @@ export function Home() {
             </button>
           </div>
         </div>
+
+        {/* Streak */}
+        {entries.length > 0 && (
+          <div className="mb-4">
+            <StreakBadge entries={entries} />
+          </div>
+        )}
 
         {/* Search + Ask toggle */}
         <div className="flex gap-2 mb-4">

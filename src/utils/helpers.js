@@ -62,3 +62,31 @@ export function getWeekEntries(entries) {
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
   return entries.filter((e) => new Date(e.date) >= oneWeekAgo);
 }
+
+export function calculateStreak(entries) {
+  if (!entries?.length) return 0;
+
+  const days = new Set();
+  for (const e of entries) {
+    const d = new Date(e.date || e.created_at);
+    if (isNaN(d)) continue;
+    d.setHours(0, 0, 0, 0);
+    days.add(d.getTime());
+  }
+
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  // Allow streak to anchor on today or yesterday (so missing today's entry by evening doesn't reset).
+  if (!days.has(cursor.getTime())) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!days.has(cursor.getTime())) return 0;
+  }
+
+  let streak = 0;
+  while (days.has(cursor.getTime())) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
