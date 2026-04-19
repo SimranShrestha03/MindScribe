@@ -1,0 +1,14 @@
+# Conda environment for MindScribe (Node.js frontend).
+# Usage:
+#   conda env create -f environment.yml
+#   conda activate mindscribe
+#   npm install
+#   npm run dev
+#
+# If you prefer system Node.js or nvm instead of conda, use Node.js 18+ and skip this file.
+
+name: mindscribe
+channels:
+  - conda-forge
+dependencies:
+  - nodejs >=18,<23
