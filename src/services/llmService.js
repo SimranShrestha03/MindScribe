@@ -134,5 +134,3 @@ Rules:
   return parseJSON(text);
 }
 
-// Keep legacy export alias so WeeklyInsights doesn't break during transition
-export { generatePeriodSummary as generateWeeklySummary };

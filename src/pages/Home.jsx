@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useJournal } from '../context/JournalContext';
 import { useAuth } from '../context/AuthContext';
-import { CheckInModal } from '../components/CheckInModal';
+import { DailyCheckIn } from '../components/DailyCheckIn';
 import { AddEntryModal } from '../components/AddEntryModal';
 import { EmotionTag } from '../components/EmotionTag';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -255,9 +255,6 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24">
-      {showCheckIn && (
-        <CheckInModal onSelect={handleCheckInSelect} onDismiss={handleCheckInDismiss} />
-      )}
       {showAddEntry && (
         <AddEntryModal onClose={() => setShowAddEntry(false)} />
       )}
@@ -341,6 +338,14 @@ export function Home() {
             </button>
           )}
         </div>
+
+        {/* Daily check-in (inline, shown once per day) */}
+        {showCheckIn && (
+          <DailyCheckIn
+            onSelectMood={handleCheckInSelect}
+            onSkip={handleCheckInDismiss}
+          />
+        )}
 
         {/* Category cards */}
         <div className="grid grid-cols-3 gap-3 mb-7">

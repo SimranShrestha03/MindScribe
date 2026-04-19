@@ -188,10 +188,9 @@ Empty range returns `entryCount: 0`; the modal surfaces this as "No entries foun
 
 ---
 
-## Legacy / unused (do not assume they run in UI)
+## Dead code removed
 
-- `src/utils/storage.js`: old localStorage journal helpers; not wired to current flow.
-- `src/services/elevenLabsService.js`, `src/hooks/useTextToSpeech.js`: present in repo but not used by current pages.
+The following files were previously noted as unused and have been deleted from the repo: `src/utils/storage.js`, `src/services/elevenLabsService.js`, `src/hooks/useTextToSpeech.js`, `src/components/CheckInModal.jsx` (replaced by `DailyCheckIn.jsx`). The legacy `generateWeeklySummary` alias in `llmService.js` was also removed.
 
 ---
 
