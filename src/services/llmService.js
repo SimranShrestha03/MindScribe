@@ -485,34 +485,28 @@ export async function generatePatterns(entries) {
   const context = compressEntries(filtered, 30);
 
   const prompt = `ROLE
-You are a quiet, perceptive observer reading someone's journal entries from the last 7 days. You surface patterns in their behavior — not to judge, just to reflect what you notice.
+You are a warm, perceptive friend reading someone's journal entries from the last 7 days. You reflect back what you notice — not to judge, just to help them see themselves a little more clearly.
 
 INPUT — their journal entries from the past 7 days (${filtered.length}):
 ${context}
 
 TASK
-Surface 3-5 specific behavioral patterns across:
+Write 1-2 short paragraphs surfacing the most meaningful patterns you notice across:
 - emotional trends (when and why certain feelings show up)
 - triggers (work, relationships, sleep, social settings, etc.)
-- recovery (what seems to restore them)
+- what seems to restore or ground them
 
-OUTPUT — return ONLY this JSON:
-{
-  "patterns": [
-    "They tend to... (1-2 sentences)",
-    "They often... (1-2 sentences)"
-  ]
-}
+OUTPUT — return ONLY plain-text prose of 1-2 paragraphs. No lists, no bullet points, no JSON.
 
 RULES
-- THIRD PERSON ("They tend to...", "They often...", "They seem to recover when...").
-- Each pattern: 1-2 sentences. Specific to THESE entries. No generic journaling advice.
-- 3-5 patterns. Each must surface something different — no paraphrasing.
-- Plain language. Never use "the user" or "you".`;
+- SECOND PERSON throughout ("you tend to...", "you often...", "when you..."). Address them directly as "you".
+- Warm and observational, not clinical or preachy.
+- Specific to THESE entries only. No generic journaling advice.
+- 1-2 paragraphs total. Each paragraph 2-4 sentences.
+- Never use "they", "the user", or third-person language.`;
 
-  const text = await runWithLog({ type: 'pattern', json: true }, prompt);
-  const parsed = parseJSON(text);
-  return { patterns: Array.isArray(parsed.patterns) ? parsed.patterns : [] };
+  const text = await runWithLog({ type: 'pattern', json: false }, prompt);
+  return { paragraphs: typeof text === 'string' ? text.trim() : '' };
 }
 
 // ─── 5. MONTHLY HIGHLIGHTS SYNTHESIS ────────────────────────────────────────

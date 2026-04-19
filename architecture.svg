@@ -1,0 +1,134 @@
+<svg width="860" height="490" viewBox="0 0 860 490" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#475569"/>
+    </marker>
+    <marker id="arr-dash" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="860" height="490" rx="14" fill="#0f172a"/>
+  <!-- BROWSER -->
+  <rect x="12" y="12" width="222" height="464" rx="10" fill="#1e293b" stroke="#1d4ed8" stroke-width="1.5"/>
+  <rect x="12" y="12" width="222" height="42" rx="10" fill="#1d4ed8"/>
+  <rect x="12" y="42" width="222" height="12" fill="#1d4ed8"/>
+  <text x="123" y="38" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" letter-spacing="1.5">BROWSER</text>
+  <text x="123" y="68" text-anchor="middle" fill="#94a3b8" font-size="9.5">React 18 + Vite SPA</text>
+  <rect x="26" y="78" width="194" height="46" rx="7" fill="#1e3a8a" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="123" y="97" text-anchor="middle" fill="#bfdbfe" font-size="10.5" font-weight="600">Auth UI</text>
+  <text x="123" y="113" text-anchor="middle" fill="#93c5fd" font-size="9">Email + password sign in / up</text>
+  <rect x="26" y="134" width="194" height="76" rx="7" fill="#1e3a8a" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="123" y="152" text-anchor="middle" fill="#bfdbfe" font-size="10.5" font-weight="600">Pages &amp; Components</text>
+  <text x="123" y="167" text-anchor="middle" fill="#93c5fd" font-size="9">Home · Recording · Results</text>
+  <text x="123" y="181" text-anchor="middle" fill="#93c5fd" font-size="9">Insights · Search · Ask Yourself</text>
+  <text x="123" y="195" text-anchor="middle" fill="#93c5fd" font-size="9">Daily Check-in · Patterns · Highlights</text>
+  <rect x="26" y="220" width="194" height="46" rx="7" fill="#1e3a8a" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="123" y="239" text-anchor="middle" fill="#bfdbfe" font-size="10.5" font-weight="600">Web Speech API</text>
+  <text x="123" y="255" text-anchor="middle" fill="#93c5fd" font-size="9">Voice input — Chrome / Edge only</text>
+  <rect x="26" y="276" width="194" height="46" rx="7" fill="#1e3a8a" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="123" y="295" text-anchor="middle" fill="#bfdbfe" font-size="10.5" font-weight="600">llmService.js</text>
+  <text x="123" y="311" text-anchor="middle" fill="#93c5fd" font-size="9">All LLM calls proxied server-side</text>
+  <rect x="26" y="332" width="194" height="46" rx="7" fill="#1e3a8a" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="123" y="351" text-anchor="middle" fill="#bfdbfe" font-size="10.5" font-weight="600">Supabase Client</text>
+  <text x="123" y="367" text-anchor="middle" fill="#93c5fd" font-size="9">anon key only · supabase-js</text>
+  <rect x="26" y="388" width="194" height="46" rx="7" fill="#1e3a8a" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="123" y="407" text-anchor="middle" fill="#bfdbfe" font-size="10.5" font-weight="600">Export Modal</text>
+  <text x="123" y="423" text-anchor="middle" fill="#93c5fd" font-size="9">PDF download via Edge Function</text>
+  <!-- SUPABASE -->
+  <rect x="256" y="12" width="358" height="464" rx="10" fill="#1e293b" stroke="#059669" stroke-width="1.5"/>
+  <rect x="256" y="12" width="358" height="42" rx="10" fill="#065f46"/>
+  <rect x="256" y="42" width="358" height="12" fill="#065f46"/>
+  <text x="435" y="38" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" letter-spacing="1.5">SUPABASE PLATFORM</text>
+  <text x="435" y="68" text-anchor="middle" fill="#94a3b8" font-size="9.5">Hosted Auth · PostgreSQL · Edge Functions</text>
+  <rect x="270" y="78" width="158" height="76" rx="7" fill="#022c22" stroke="#10b981" stroke-width="0.8"/>
+  <text x="349" y="97" text-anchor="middle" fill="#a7f3d0" font-size="10.5" font-weight="600">Auth Service</text>
+  <text x="349" y="112" text-anchor="middle" fill="#6ee7b7" font-size="9">Email + password</text>
+  <text x="349" y="126" text-anchor="middle" fill="#6ee7b7" font-size="9">JWT session tokens</text>
+  <text x="349" y="140" text-anchor="middle" fill="#6ee7b7" font-size="9">Row-Level Security (RLS)</text>
+  <rect x="438" y="78" width="162" height="76" rx="7" fill="#022c22" stroke="#10b981" stroke-width="0.8"/>
+  <text x="519" y="97" text-anchor="middle" fill="#a7f3d0" font-size="10.5" font-weight="600">profiles</text>
+  <text x="519" y="112" text-anchor="middle" fill="#6ee7b7" font-size="9">Auto-created by trigger</text>
+  <text x="519" y="126" text-anchor="middle" fill="#6ee7b7" font-size="9">name · timezone</text>
+  <text x="519" y="140" text-anchor="middle" fill="#6ee7b7" font-size="9">entry_count · last_active_at</text>
+  <rect x="270" y="166" width="330" height="136" rx="7" fill="#022c22" stroke="#10b981" stroke-width="0.8"/>
+  <text x="435" y="184" text-anchor="middle" fill="#a7f3d0" font-size="10.5" font-weight="600">PostgreSQL Database</text>
+  <rect x="280" y="192" width="148" height="98" rx="5" fill="#064e3b" stroke="#34d399" stroke-width="0.7"/>
+  <text x="354" y="208" text-anchor="middle" fill="#d1fae5" font-size="10" font-weight="600">journals</text>
+  <text x="354" y="222" text-anchor="middle" fill="#6ee7b7" font-size="8.5">user_text · ai_summary</text>
+  <text x="354" y="234" text-anchor="middle" fill="#6ee7b7" font-size="8.5">highlight · emotions (jsonb)</text>
+  <text x="354" y="246" text-anchor="middle" fill="#6ee7b7" font-size="8.5">feedback · is_favorite · type</text>
+  <text x="354" y="258" text-anchor="middle" fill="#6ee7b7" font-size="8.5">embedding — pgvector 1536</text>
+  <text x="354" y="272" text-anchor="middle" fill="#34d399" font-size="8">match_journals() semantic RPC</text>
+  <text x="354" y="284" text-anchor="middle" fill="#34d399" font-size="8">RLS: auth.uid() = user_id</text>
+  <rect x="438" y="192" width="154" height="98" rx="5" fill="#064e3b" stroke="#34d399" stroke-width="0.7"/>
+  <text x="515" y="208" text-anchor="middle" fill="#d1fae5" font-size="10" font-weight="600">insights · llm_logs</text>
+  <text x="515" y="222" text-anchor="middle" fill="#6ee7b7" font-size="8.5">insights: period summaries</text>
+  <text x="515" y="234" text-anchor="middle" fill="#6ee7b7" font-size="8.5">llm_logs: every LLM call</text>
+  <text x="515" y="246" text-anchor="middle" fill="#6ee7b7" font-size="8.5">model · tokens · success</text>
+  <text x="515" y="258" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Fire-and-forget logging</text>
+  <text x="515" y="272" text-anchor="middle" fill="#34d399" font-size="8">Separate from journals</text>
+  <text x="515" y="284" text-anchor="middle" fill="#34d399" font-size="8">RLS: auth.uid() = user_id</text>
+  <rect x="270" y="316" width="330" height="148" rx="7" fill="#022c22" stroke="#10b981" stroke-width="0.8"/>
+  <text x="435" y="334" text-anchor="middle" fill="#a7f3d0" font-size="10.5" font-weight="600">Edge Functions (Deno runtime)</text>
+  <rect x="280" y="342" width="148" height="110" rx="5" fill="#064e3b" stroke="#34d399" stroke-width="0.7"/>
+  <text x="354" y="358" text-anchor="middle" fill="#d1fae5" font-size="10" font-weight="600">llm-proxy</text>
+  <text x="354" y="372" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Routes to Claude or OpenAI</text>
+  <text x="354" y="384" text-anchor="middle" fill="#6ee7b7" font-size="8.5">API keys server-side only</text>
+  <text x="354" y="396" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Prompt caching (Claude)</text>
+  <text x="354" y="408" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Retry + back-off 3x</text>
+  <text x="354" y="420" text-anchor="middle" fill="#6ee7b7" font-size="8.5">JSON + plain-text modes</text>
+  <text x="354" y="443" text-anchor="middle" fill="#34d399" font-size="8">JWT validation on every call</text>
+  <rect x="438" y="342" width="154" height="110" rx="5" fill="#064e3b" stroke="#34d399" stroke-width="0.7"/>
+  <text x="515" y="358" text-anchor="middle" fill="#d1fae5" font-size="10" font-weight="600">export-journal</text>
+  <text x="515" y="372" text-anchor="middle" fill="#6ee7b7" font-size="8.5">PDF generation via pdf-lib</text>
+  <text x="515" y="384" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Returns raw PDF bytes</text>
+  <text x="515" y="396" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Any date range</text>
+  <text x="515" y="408" text-anchor="middle" fill="#6ee7b7" font-size="8.5">Auth-gated via JWT</text>
+  <text x="515" y="420" text-anchor="middle" fill="#6ee7b7" font-size="8.5">X-Entry-Count header</text>
+  <text x="515" y="443" text-anchor="middle" fill="#34d399" font-size="8">Content-Disposition: attachment</text>
+  <!-- AI PROVIDERS -->
+  <rect x="636" y="12" width="212" height="464" rx="10" fill="#1e293b" stroke="#7c3aed" stroke-width="1.5"/>
+  <rect x="636" y="12" width="212" height="42" rx="10" fill="#5b21b6"/>
+  <rect x="636" y="42" width="212" height="12" fill="#5b21b6"/>
+  <text x="742" y="38" text-anchor="middle" fill="#fff" font-size="12" font-weight="700" letter-spacing="1.5">AI PROVIDERS</text>
+  <text x="742" y="68" text-anchor="middle" fill="#94a3b8" font-size="9.5">External APIs — server-side only</text>
+  <rect x="650" y="78" width="184" height="136" rx="7" fill="#2e1065" stroke="#8b5cf6" stroke-width="0.8"/>
+  <text x="742" y="97" text-anchor="middle" fill="#ddd6fe" font-size="10.5" font-weight="600">Anthropic Claude</text>
+  <text x="742" y="113" text-anchor="middle" fill="#a78bfa" font-size="9" font-style="italic">claude-sonnet-4-6</text>
+  <line x1="660" y1="120" x2="824" y2="120" stroke="#4c1d95" stroke-width="0.8"/>
+  <text x="742" y="135" text-anchor="middle" fill="#c4b5fd" font-size="9">Entry processing</text>
+  <text x="742" y="149" text-anchor="middle" fill="#c4b5fd" font-size="9">summary · highlight · emotions</text>
+  <text x="742" y="163" text-anchor="middle" fill="#c4b5fd" font-size="9">feedback · cleaned text</text>
+  <text x="742" y="177" text-anchor="middle" fill="#c4b5fd" font-size="9">Patterns · Ask past self</text>
+  <text x="742" y="191" text-anchor="middle" fill="#c4b5fd" font-size="9">Highlights synthesis</text>
+  <text x="742" y="206" text-anchor="middle" fill="#6d28d9" font-size="8" font-style="italic">Default · prompt caching enabled</text>
+  <rect x="650" y="228" width="184" height="136" rx="7" fill="#2e1065" stroke="#8b5cf6" stroke-width="0.8"/>
+  <text x="742" y="247" text-anchor="middle" fill="#ddd6fe" font-size="10.5" font-weight="600">OpenAI</text>
+  <text x="742" y="263" text-anchor="middle" fill="#a78bfa" font-size="9" font-style="italic">gpt-4o-mini</text>
+  <line x1="660" y1="270" x2="824" y2="270" stroke="#4c1d95" stroke-width="0.8"/>
+  <text x="742" y="285" text-anchor="middle" fill="#c4b5fd" font-size="9">Alternative LLM provider</text>
+  <text x="742" y="299" text-anchor="middle" fill="#c4b5fd" font-size="9">text-embedding-3-small</text>
+  <text x="742" y="313" text-anchor="middle" fill="#c4b5fd" font-size="9">1536-dim pgvector embeddings</text>
+  <text x="742" y="327" text-anchor="middle" fill="#c4b5fd" font-size="9">Semantic journal search</text>
+  <text x="742" y="341" text-anchor="middle" fill="#c4b5fd" font-size="9">Embeddings backfill</text>
+  <text x="742" y="356" text-anchor="middle" fill="#6d28d9" font-size="8" font-style="italic">Always used for embeddings</text>
+  <rect x="650" y="378" width="184" height="76" rx="7" fill="#2e1065" stroke="#8b5cf6" stroke-width="0.8"/>
+  <text x="742" y="397" text-anchor="middle" fill="#ddd6fe" font-size="10.5" font-weight="600">Resend (optional)</text>
+  <line x1="660" y1="404" x2="824" y2="404" stroke="#4c1d95" stroke-width="0.8"/>
+  <text x="742" y="419" text-anchor="middle" fill="#c4b5fd" font-size="9">Email delivery</text>
+  <text x="742" y="433" text-anchor="middle" fill="#c4b5fd" font-size="9">Edge Function secret only</text>
+  <text x="742" y="447" text-anchor="middle" fill="#6d28d9" font-size="8" font-style="italic">Not exposed in UI</text>
+  <!-- ARROWS: Browser to Supabase (browser right edge x=234, supabase left x=256) -->
+  <line x1="234" y1="101" x2="256" y2="101" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="245" y="97" text-anchor="middle" fill="#64748b" font-size="8">JWT</text>
+  <line x1="234" y1="247" x2="256" y2="247" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="245" y="243" text-anchor="middle" fill="#64748b" font-size="8">CRUD</text>
+  <line x1="234" y1="397" x2="256" y2="397" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="245" y="393" text-anchor="middle" fill="#64748b" font-size="8">fetch</text>
+  <!-- ARROWS: Supabase llm-proxy to AI (supabase right x=614, ai left x=636) -->
+  <!-- to Claude (center y=146) -->
+  <polyline points="614,390 624,390 624,146 636,146" stroke="#475569" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#arr-dash)"/>
+  <!-- to OpenAI (center y=296) -->
+  <polyline points="614,404 631,404 631,296 636,296" stroke="#475569" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#arr-dash)"/>
+  <text x="625" y="254" text-anchor="middle" fill="#64748b" font-size="8">HTTPS</text>
+</svg>

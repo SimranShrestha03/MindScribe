@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { generatePatterns } from '../services/llmService';
 
 export function PatternEngine({ entries }) {
-  const [patterns, setPatterns] = useState(null);
+  const [paragraphs, setParagraphs] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
 
@@ -13,7 +13,7 @@ export function PatternEngine({ entries }) {
     setError(null);
     try {
       const result = await generatePatterns(entries);
-      setPatterns(result.patterns);
+      setParagraphs(result.paragraphs);
     } catch (err) {
       setError(err?.message || 'Failed to generate patterns');
     } finally {
@@ -30,7 +30,7 @@ export function PatternEngine({ entries }) {
           </p>
           <p className="text-xs text-slate-600 mt-0.5">Based on the last 7 days</p>
         </div>
-        {patterns && !loading && (
+        {paragraphs != null && !loading && (
           <button
             onClick={handleGenerate}
             className="text-xs text-slate-500 hover:text-violet-400 transition-colors"
@@ -40,7 +40,7 @@ export function PatternEngine({ entries }) {
         )}
       </div>
 
-      {!patterns && !loading && (
+      {paragraphs == null && !loading && (
         <>
           <p className="text-sm text-slate-400 leading-relaxed mb-4">
             Surface recurring emotional trends, triggers, and recovery patterns across your entries.
@@ -62,21 +62,15 @@ export function PatternEngine({ entries }) {
         </div>
       )}
 
-      {patterns && patterns.length > 0 && !loading && (
-        <ul className="space-y-3">
-          {patterns.map((p, i) => (
-            <li
-              key={i}
-              className="flex gap-3 bg-gradient-to-br from-violet-900/15 to-indigo-900/15 border border-violet-700/20 rounded-xl p-4"
-            >
-              <span className="text-violet-400 text-sm font-bold shrink-0">{i + 1}.</span>
-              <p className="text-sm text-slate-300 leading-relaxed">{p}</p>
-            </li>
+      {paragraphs != null && paragraphs.length > 0 && !loading && (
+        <div className="bg-gradient-to-br from-violet-900/15 to-indigo-900/15 border border-violet-700/20 rounded-xl p-4 space-y-3">
+          {paragraphs.split(/\n\n+/).map((para, i) => (
+            <p key={i} className="text-sm text-slate-300 leading-relaxed">{para.trim()}</p>
           ))}
-        </ul>
+        </div>
       )}
 
-      {patterns && patterns.length === 0 && !loading && (
+      {paragraphs != null && paragraphs.length === 0 && !loading && (
         <p className="text-sm text-slate-500">
           Not enough signal yet. Keep writing and try again.
         </p>

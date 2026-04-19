@@ -35,6 +35,12 @@ Speak or write what's on your mind. MindScribe turns it into a structured reflec
 
 ---
 
+## Architecture
+
+![MindScribe architecture](./architecture.svg)
+
+---
+
 ## Tech stack
 
 | Layer | Choice |
@@ -65,7 +71,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-Only the **anon** key goes in the frontend. Never commit `.env`.
+Only the **anon** key goes in the frontend. The `VITE_SUPABASE_*` variables are required — without them the Supabase client has nothing to connect to. LLM API keys are **not** stored here; they live in Supabase Edge Function secrets (step 3). Never commit `.env`.
 
 ### 3. Set up Supabase Edge Function secrets
 
